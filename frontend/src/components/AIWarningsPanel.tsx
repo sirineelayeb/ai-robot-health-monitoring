@@ -1,0 +1,58 @@
+import type { TelemetryData } from "../types/telemetry";
+import { theme } from "../config/theme";
+
+type AIWarningsPanelProps = {
+  telemetry: TelemetryData | null;
+};
+
+export const AIWarningsPanel = ({ telemetry }: AIWarningsPanelProps) => {
+  if (!telemetry || !telemetry.is_anomaly) return null;
+
+  // Map anomaly_type to a theme color
+const getAnomalyColor = (type: string | null | undefined) => {
+  switch (type) {
+    case "battery":
+      return theme.colors.metrics.battery.main;
+    case "temperature":
+    case "motor_temp":
+      return theme.colors.metrics.motorTemp.main;
+    case "motor_current":
+      return theme.colors.metrics.motorCurrent.main;
+    case "cpu":
+    case "cpu_load":
+      return theme.colors.metrics.cpuLoad.main;
+    case "velocity":
+      return theme.colors.metrics.velocity.main;
+    default:
+      return theme.colors.status.critical.main; // fallback color
+  }
+};
+
+
+  return (
+    <div className={`${theme.card.base} ${theme.card.padding} mt-6`}>
+      <h3 className={`${theme.typography.heading.h3} mb-4`}>AI-Predicted Warnings</h3>
+      <table className="w-full text-left border-collapse">
+        <thead>
+          <tr className="border-b">
+            <th className="py-2 px-3">Robot</th>
+            <th className="py-2 px-3">Status</th>
+            <th className="py-2 px-3">Anomaly</th>
+            <th className="py-2 px-3">Time</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr
+            className="transition-all hover:bg-gray-50 rounded-md"
+            style={{ backgroundColor: getAnomalyColor(telemetry.anomaly_type) + "20" }} // subtle transparent overlay
+          >
+            <td className="py-2 px-3 font-medium">{telemetry.robot_id}</td>
+            <td className="py-2 px-3">{telemetry.status}</td>
+            <td className="py-2 px-3 capitalize">{telemetry.anomaly_type || "Unknown"}</td>
+            <td className="py-2 px-3">{new Date(telemetry.timestamp).toLocaleTimeString()}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  );
+};
