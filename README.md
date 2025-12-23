@@ -4,10 +4,68 @@ This project monitors robot health using IoT data and AI. Robots send real-time 
 An AI model (Random Forest) detects problems like overheating, battery issues, or abnormal velocity patterns. A web dashboard visualizes live status, warnings, and trends.
 ## Project Structure
 
-├── backend/ # Server (Node.js / Express)
-├── frontend/ # Web dashboard (React/Vite)
-├── robot-simulator/ # Robot telemetry simulator
+ai-robot-health-monitoring/
+│
+├── backend/                          # Backend server 
+│   ├── config/                       # Database & environment configuration
+│   ├── controllers/                  # API request handlers
+│   ├── models/                       # MongoDB schemas (Telemetry, User)
+│   ├── routes/                       # REST API routes
+│   ├── middlewares/                  # Auth & request middlewares
+│   │   └── authMiddleware.js         # JWT authentication
+│   ├── services/                     # Core application services
+│   │   ├── mqttService.js            # MQTT subscriber (robot/telemetry)
+│   │   ├── socketService.js          # WebSocket real-time updates
+│   │   └── anomalyService.js         # ML integration & predictions
+│   ├── utils/                        # Utility helpers
+│   │   ├── generateToken.js          # JWT token generation
+│   │   ├── hashPassword.js           # Password hashing
+│   │   └── logger.js                 # Logging utility
+│   ├── ml/                           # Machine Learning
+│   │   ├── predict.py                # Loads model & predicts anomalies
+│   │   ├── rf_model.joblib           # Trained Random Forest model
+│   │   └── scaler.joblib             # Feature scaler 
+│   ├── .env                          # Backend environment variables
+│   ├── server.js                     # Server entry point
+│   └── package.json
+│
+├── frontend/                         # Web dashboard (React + Vite + Tailwind)
+│   ├── src/
+│   │   ├── components/               # Reusable UI components
+│   │   ├── pages/                    # Application pages
+│   │   ├── layouts/                  # Layout wrappers (Dashboard, Auth)
+│   │   ├── routes/                   # Routing & protected routes
+│   │   │   ├── Router.tsx            # Main router component
+│   │   │   └── ProtectedRoute.tsx    # Guards routes for authenticated users
+│   │   ├── context/                  # Global state & auth context
+│   │   ├── services/                 # API & WebSocket clients
+│   │   ├── config/                   # UI theme & app configuration
+│   │   ├── lib/                      # Shared helpers & utilities
+│   │   ├── types/                    # TypeScript interfaces
+│   │   ├── App.tsx
+│   │   ├── App.css
+│   │   ├── index.css
+│   │   └── main.tsx
+│   │
+│   ├── index.html
+│   ├── tailwind.config.js
+│   ├── postcss.config.js
+│   ├── .env                          # Frontend environment variables
+│   ├── vite.config.ts
+│   └── package.json
+│
+├── robot-simulator/                  # Robot telemetry simulator (Python)
+│   ├── simulator.py                  # Publishes telemetry via MQTT
+│   ├── requirements.txt
+│   └── README.md
+│
+├── docs/                             # Documentation
+│   └── architecture.png              # System architecture diagram
+│
+├── .gitignore
 └── README.md
+
+
 
 ## Architecture
 
