@@ -2,8 +2,9 @@
 
 This project monitors robot health using IoT data and AI. Robots send real-time telemetry data such as battery, motor current, temperature, CPU load, and velocity to a backend server. 
 An AI model (Random Forest) detects problems like overheating, battery issues, or abnormal velocity patterns. A web dashboard visualizes live status, warnings, and trends.
-## Project Structure
 
+## Project Structure
+   ```bash
 ai-robot-health-monitoring/
 │
 ├── backend/                          # Backend server 
@@ -64,8 +65,7 @@ ai-robot-health-monitoring/
 │
 ├── .gitignore
 └── README.md
-
-
+```
 
 ## Architecture
 
