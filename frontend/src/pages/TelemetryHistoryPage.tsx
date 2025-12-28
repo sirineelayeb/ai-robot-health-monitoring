@@ -1,30 +1,44 @@
-// pages/TelemetryHistoryPage.tsx
-import React, { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams } from "react-router-dom";
-import { fetchHistoricalTelemetry } from "../api/telemetry";
+import { getTelemetryHistory, getTelemetryCount } from "../api/telemetry";
 import type { TelemetryData } from "../types/telemetry";
-import TelemetryHistory from "../components/TelemetryHistory";
+import HistoryHeader from "../components/history/HistoryHeader";
+import StatusOverview from "../components/history/StatusOverview";
+import StatusChangesTimeline from "../components/history/StatusChangesTimeline";
+import DateFilter from "../components/history/DateFilter"; 
+import MetricChart from "../components/history/MetricChart";
+import MetricsGrid from "../components/history/MetricsGrid";
+import TelemetryTable from "../components/history/TelemetryTable";
 
-const REFRESH_INTERVAL = 5000; // 5 seconds
-
-const TelemetryHistoryPage: React.FC = () => {
+export default function TelemetryHistoryPage() {
   const { robotId } = useParams<{ robotId: string }>();
   const [history, setHistory] = useState<TelemetryData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [isAutoRefresh, setIsAutoRefresh] = useState(true);
+  const [totalCount, setTotalCount] = useState<number>(0);
+  const [selectedDate, setSelectedDate] = useState<string>("");
+  const [currentPage, setCurrentPage] = useState<number>(1);
 
+  // Fetch all telemetry history
   const fetchHistory = useCallback(async () => {
     if (!robotId) return;
 
     try {
-      // Don't show loading spinner on subsequent fetches
-      if (history.length === 0) {
-        setLoading(true);
-      }
-      const data = await fetchHistoricalTelemetry(robotId, 200);
-      setHistory(data);
+      setLoading(true);
+
+      const [data, count] = await Promise.all([
+        getTelemetryHistory(robotId, 0), // 0 = fetch all
+        getTelemetryCount(robotId),
+      ]);
+
+      setHistory(
+        data.map((d: TelemetryData) => ({
+          ...d,
+          timestamp: new Date(d.timestamp),
+        }))
+      );
+      setTotalCount(count);
       setLastUpdated(new Date());
       setError(null);
     } catch (err: any) {
@@ -32,46 +46,64 @@ const TelemetryHistoryPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [robotId, history.length]);
+  }, [robotId]);
 
-  // Initial fetch
+  // Initial fetch only
   useEffect(() => {
     fetchHistory();
-  }, [robotId]); // Only depend on robotId for initial fetch
+  }, [robotId, fetchHistory]);
 
-  // Auto-refresh interval
-  useEffect(() => {
-    if (!isAutoRefresh || !robotId) return;
-
-    const intervalId = setInterval(() => {
-      fetchHistory();
-    }, REFRESH_INTERVAL);
-
-    return () => clearInterval(intervalId);
-  }, [isAutoRefresh, robotId, fetchHistory]);
-
-  const handleManualRefresh = () => {
-    fetchHistory();
+  const handleManualRefresh = () => fetchHistory();
+  const handleDateChange = (value: string) => {
+    setSelectedDate(value);
+    setCurrentPage(1);
   };
 
-  const toggleAutoRefresh = () => {
-    setIsAutoRefresh((prev) => !prev);
-  };
+  // Filtered history by selected date (YYYY-MM-DD)
+  const filteredHistory = useMemo(() => {
+    if (!selectedDate) return history;
+    return history.filter(
+      (item) => item.timestamp.toISOString().split("T")[0] === selectedDate
+    );
+  }, [history, selectedDate]);
 
-  if (loading) return <p className="p-6">Loading telemetry history...</p>;
-  if (error) return <p className="p-6 text-red-600">Error: {error}</p>;
-  if (history.length === 0) return <p className="p-6">No telemetry history available for {robotId}</p>;
+  if (loading && history.length === 0)
+    return <p className="p-6">Loading telemetry history...</p>;
+  if (error && history.length === 0)
+    return <p className="p-6 text-red-600">Error: {error}</p>;
+  if (!robotId)
+    return <p className="p-6 text-red-600">Robot ID is required</p>;
 
   return (
-    <TelemetryHistory 
-      robotId={robotId!} 
-      history={history}
-      lastUpdated={lastUpdated}
-      isAutoRefresh={isAutoRefresh}
-      onManualRefresh={handleManualRefresh}
-      onToggleAutoRefresh={toggleAutoRefresh}
-    />
-  );
-};
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <HistoryHeader
+        robotId={robotId}
+        lastUpdated={lastUpdated}
+        isAutoRefresh={false} 
+        filteredCount={filteredHistory.length}
+        onManualRefresh={handleManualRefresh}
+      />
 
-export default TelemetryHistoryPage;
+      {/* Status Overview */}
+      <StatusOverview history={filteredHistory} />
+
+      {/* Status Changes Timeline */}
+      <StatusChangesTimeline history={filteredHistory} />
+
+      {/* Date Filter */}
+      <DateFilter selectedDate={selectedDate} onDateChange={handleDateChange} />
+
+      {/* Metrics */}
+      <MetricChart history={filteredHistory} />
+      <MetricsGrid history={filteredHistory} />
+
+      {/* Telemetry Table */}
+      <TelemetryTable
+        history={filteredHistory}
+        currentPage={currentPage}
+        onPageChange={setCurrentPage}
+      />
+    </div>
+  );
+}

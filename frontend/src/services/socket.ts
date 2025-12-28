@@ -20,11 +20,15 @@ export const subscribeTelemetry = (callback: (data: TelemetryData) => void) => {
   initSocket();
   if (!socket) return () => {};
 
-  // Attach the callback  
-  socket.on("telemetry", callback);
+  // Debug: log all telemetry messages
+  socket.on("telemetry", (data: TelemetryData) => {
+    console.log("📡 Telemetry received:", data);
+    callback(data);
+  });
 
-  // Return cleanup function
+  // Cleanup
   return () => {
-    socket?.off("telemetry", callback);
+    socket?.off("telemetry", callback); // keep the original callback off
   };
 };
+

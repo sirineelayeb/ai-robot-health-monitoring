@@ -1,135 +1,211 @@
 // src/config/theme.ts
 
 export const theme = {
-  // -----------------------------
-  // COLOR PALETTE
-  // -----------------------------
+  // =============================
+  // COLORS
+  // =============================
   colors: {
-    // Primary grayscale
+    // -----------------------------
+    // PRIMARY BRAND
+    // -----------------------------
     primary: {
-      dark: "#111827",
-      medium: "#374151",
-      light: "#6b7280",
-      lighter: "#9ca3af",
+      dark: "#0f172a",
+      medium: "#1e40af",
+      light: "#60a5fa",
+      accent: "#22d3ee",
     },
 
-    // Background colors
+    // -----------------------------
+    // NEUTRAL SYSTEM
+    // -----------------------------
+    neutral: {
+      900: "#0f172a",
+      700: "#334155",
+      600: "#475569",
+      400: "#94a3b8",
+      200: "#e2e8f0",
+      100: "#f1f5f9",
+      50: "#f8fafc",
+    },
+
+    // -----------------------------
+    // BACKGROUND
+    // -----------------------------
     background: {
-      main: "#f9fafb",
+      main: "#f8fafc",
       card: "#ffffff",
-      hover: "#f3f4f6",
+      subtle: "#f1f5f9",
+      hover: "#e2e8f0",
     },
 
-    // Border colors
+    // -----------------------------
+    // BORDER (BACKWARD COMPAT)
+    // -----------------------------
     border: {
-      default: "#e5e7eb",
-      light: "#f3f4f6",
+      default: "#e2e8f0",
+      light: "#f1f5f9",
     },
 
-    // Text colors
+    // -----------------------------
+    // TEXT
+    // -----------------------------
     text: {
-      primary: "#111827",
-      secondary: "#6b7280",
-      tertiary: "#9ca3af",
-      label: "#374151",
+      primary: "#0f172a",
+      secondary: "#47556",
+      muted: "#64748b",
+      label: "#334155",
+      inverted: "#ffffff",
     },
 
-    // Status colors for robot/anomaly
+    // -----------------------------
+    // STATUS COLORS
+    // -----------------------------
     status: {
-      good: { main: "#22c55e", light: "#bbf7d0", bg: "#dcfce7" },      // green
-      warning: { main: "#facc15", light: "#fef08a", bg: "#fef9c3" },   // yellow
-      critical: { main: "#ef4444", light: "#fca5a5", bg: "#fee2e2" },  // red
+      good: {
+        main: "#10b981",
+        soft: "#6ee7b7",
+        bg: "#ecfdf5",
+      },
+      warning: {
+        main: "#f59e0b",
+        soft: "#fde68a",
+        bg: "#fffbeb",
+      },
+      critical: {
+        main: "#ef4444",
+        soft: "#fca5a5",
+        bg: "#fef2f2",
+      },
     },
 
-    // Chart colors
+    // -----------------------------
+    // CHART COLORS
+    // -----------------------------
     chart: {
-      line: "#374151",
-      fill: "#e5e7eb",
-      grid: "#f3f4f6",
-      axis: "#9ca3af",
+      primary: "#2563eb",
+      secondary: "#22d3ee",
+      grid: "#e2e8f0",
+      axis: "#94a3b8",
+      fill: "#eff6ff",
+      line: "#4f46e5"
     },
 
-    // Metric-specific colors
+    // -----------------------------
+    // METRICS (FULLY SAFE)
+    // -----------------------------
     metrics: {
-      battery: { main: "#1e40af", light: "#60a5fa", bg: "#eff6ff" },
-      motorTemp: { main: "#b91c1c", light: "#f87171", bg: "#fef2f2" },
-      motorCurrent: { main: "#7e22ce", light: "#c084fc", bg: "#faf5ff" },
-      cpuLoad: { main: "#15803d", light: "#4ade80", bg: "#f0fdf4" },
-      velocity: { main: "#c2410c", light: "#fb923c", bg: "#fff7ed" },
-      anomalyScore: { main: "#be185d", light: "#f472b6", bg: "#fdf2f8" },
+      battery: {
+        main: "#06b6d4",
+        soft: "#67e8f9",
+        light: "#67e8f9", // backward compatibility
+        bg: "#ecfeff",
+      },
+      motorTemp: {
+        main: "#fb923c",
+        soft: "#fed7aa",
+        light: "#fed7aa",
+        bg: "#fff7ed",
+      },
+      motorCurrent: {
+        main: "#8b5cf6",
+        soft: "#c4b5fd",
+        light: "#c4b5fd",
+        bg: "#f5f3ff",
+      },
+      cpuLoad: {
+        main: "#3b82f6",
+        soft: "#bfdbfe",
+        light: "#bfdbfe",
+        bg: "#eff6ff",
+      },
+      velocity: {
+        main: "#14b8a6",
+        soft: "#99f6e4",
+        light: "#99f6e4",
+        bg: "#f0fdfa",
+      },
+      anomalyScore: {
+        main: "#ec4899",
+        soft: "#fbcfe8",
+        light: "#fbcfe8",
+        bg: "#fdf2f8",
+      },
     },
   },
 
-  // -----------------------------
-  // CARD STYLES
-  // -----------------------------
+  // =============================
+  // CARD SYSTEM
+  // =============================
   card: {
-    base: "bg-white rounded-lg shadow-sm border border-gray-200",
+    base:
+      "bg-white rounded-xl border border-slate-200 shadow-sm",
     padding: "p-6",
-    hover: "hover:shadow-md transition-shadow",
+    hover:
+      "hover:shadow-md hover:border-slate-300 transition-all duration-200",
   },
 
-  // -----------------------------
+  // =============================
   // TYPOGRAPHY
-  // -----------------------------
+  // =============================
   typography: {
     heading: {
-      h1: "text-3xl font-semibold text-gray-900",
-      h2: "text-2xl font-semibold text-gray-900",
-      h3: "text-xl font-semibold text-gray-900",
+      h1: "text-3xl font-semibold text-slate-900 tracking-tight",
+      h2: "text-2xl font-semibold text-slate-900 tracking-tight",
+      h3: "text-xl font-semibold text-slate-800",
     },
-    label: "text-sm font-medium text-gray-700 uppercase tracking-wide",
-    body: "text-base text-gray-600",
-    caption: "text-xs text-gray-500",
-    value: "text-2xl font-semibold text-gray-900",
+    label:
+      "text-xs font-semibold text-slate-500 uppercase tracking-widest",
+    body: "text-sm text-slate-600 leading-relaxed",
+    caption: "text-xs text-slate-500",
+    value: "text-2xl font-bold text-slate-900",
   },
 
-  // -----------------------------
+  // =============================
   // SPACING
-  // -----------------------------
+  // =============================
   spacing: {
     card: "p-6",
-    section: "mb-8",
+    section: "mb-10",
     element: "mb-4",
   },
 
-  // -----------------------------
+  // =============================
   // SHADOWS
-  // -----------------------------
+  // =============================
   shadow: {
     sm: "shadow-sm",
     md: "shadow-md",
-    lg: "shadow-lg",
+    lg: "shadow-lg shadow-slate-200/50",
   },
 
-  // -----------------------------
-  // BORDER RADIUS
-  // -----------------------------
+  // =============================
+  // RADIUS
+  // =============================
   radius: {
-    sm: "rounded",
+    sm: "rounded-md",
     md: "rounded-lg",
     lg: "rounded-xl",
     full: "rounded-full",
   },
 };
 
-// -----------------------------
-// HELPER FUNCTIONS
-// -----------------------------
+// =============================
+// HELPERS
+// =============================
 export const getStatusColor = (
   value: number,
-  thresholds: { good: number; warning: number }
+  thresholds: { good: number; warning: number; critical: number }
 ) => {
-  if (value > thresholds.good) return theme.colors.status.good;
-  if (value > thresholds.warning) return theme.colors.status.warning;
-  return theme.colors.status.critical;
+  if (value >= thresholds.critical) return theme.colors.status.critical;
+  if (value >= thresholds.warning) return theme.colors.status.warning;
+  return theme.colors.status.good;
 };
 
 export const getStatusText = (
   value: number,
-  thresholds: { good: number; warning: number }
-): string => {
-  if (value > thresholds.good) return "NORMAL";
-  if (value > thresholds.warning) return "WARNING";
-  return "CRITICAL";
+  thresholds: { good: number; warning: number; critical: number }
+) => {
+  if (value >= thresholds.critical) return "CRITICAL";
+  if (value >= thresholds.warning) return "WARNING";
+  return "NORMAL";
 };
