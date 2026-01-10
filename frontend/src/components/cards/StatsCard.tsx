@@ -1,3 +1,4 @@
+// src/components/Dashboard/StatsCard.tsx
 import type { TelemetryStats } from "../../types/telemetry";
 import { theme, getStatusColor } from "../../config/theme";
 import { AlertTriangle, Activity, Clock } from "lucide-react";
@@ -21,7 +22,7 @@ type StatsCardProps = {
 export const StatsCard = ({ stats }: StatsCardProps) => {
   if (!stats) return null;
 
-  const { lastAnomalyTime, totalAnomalies, anomalyPercentage } = stats;
+  const { lastAnomalyTime, totalAnomalies, anomalyPercentage, totalRecords } = stats;
 
   // Status for anomaly rate
   const anomalyStatus = getStatusColor(anomalyPercentage ?? 0, { good: 25, warning: 50 });
@@ -61,7 +62,7 @@ export const StatsCard = ({ stats }: StatsCardProps) => {
             className={theme.typography.value}
             style={{ color: theme.colors.status.warning.main }}
           >
-            {(totalAnomalies ?? 0).toLocaleString()} {/* ✅ ADD ?? 0 FALLBACK */}
+            {(totalAnomalies ?? 0).toLocaleString()}
           </p>
         </div>
 
@@ -79,11 +80,18 @@ export const StatsCard = ({ stats }: StatsCardProps) => {
             className={`${theme.typography.value} text-3xl`}
             style={{ color: anomalyStatus.main }}
           >
-            {(anomalyPercentage ?? 0).toFixed(1)}% {/* ✅ ADD ?? 0 FALLBACK */}
+            {(anomalyPercentage ?? 0).toFixed(1)}%
           </p>
         </div>
 
       </div>
+
+      {/* Optional: Total Records */}
+      {totalRecords !== undefined && (
+        <p className="mt-4 text-xs text-gray-500 text-center">
+          Total telemetry records: {totalRecords.toLocaleString()}
+        </p>
+      )}
     </div>
   );
 };

@@ -1,58 +1,48 @@
 import { useMemo } from "react";
-import { AlertTriangle, AlertCircle, CheckCircle } from "lucide-react";
+import { 
+  AlertCircle, 
+  CheckCircle, 
+  Battery, 
+  Thermometer, 
+  Cpu,
+  Brain,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight
+} from "lucide-react";
 import type { TelemetryData } from "../../types/telemetry";
-import { Button } from "../ui/button";
-import { theme } from "../../config/theme";
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 5;
 
 interface Props {
-  history: TelemetryData[]; // already filtered if needed
+  history: TelemetryData[];
   currentPage: number;
   onPageChange: (page: number) => void;
 }
 
-const getStatusIcon = (status: string) => {
-  const iconClass = "w-4 h-4";
-  switch (status) {
-    case "NORMAL":
-      return <CheckCircle className={iconClass} />;
-    case "WARNING":
-      return <AlertTriangle className={iconClass} />;
-    case "CRITICAL":
-      return <AlertCircle className={iconClass} />;
-    default:
-      return null;
-  }
+const getTimestamp = (timestamp: string | Date): Date => {
+  return timestamp instanceof Date ? timestamp : new Date(timestamp);
 };
 
-const getStatusStyles = (status: string) => {
-  switch (status) {
-    case "NORMAL":
-      return {
-        text: theme.colors.status.good.main,
-        bg: theme.colors.status.good.bg,
-        border: theme.colors.status.good.soft,
-      };
-    case "WARNING":
-      return {
-        text: theme.colors.status.warning.main,
-        bg: theme.colors.status.warning.bg,
-        border: theme.colors.status.warning.soft,
-      };
-    case "CRITICAL":
-      return {
-        text: theme.colors.status.critical.main,
-        bg: theme.colors.status.critical.bg,
-        border: theme.colors.status.critical.soft,
-      };
-    default:
-      return {
-        text: theme.colors.text.secondary,
-        bg: theme.colors.background.main,
-        border: theme.colors.border.default,
-      };
-  }
+const hasAnomaly = (item: TelemetryData): boolean => {
+  return item.is_anomaly || item.ml_prediction?.is_anomaly || false;
+};
+
+const getAnomalyType = (item: TelemetryData): string | null => {
+  return item.anomaly_type || item.ml_prediction?.anomaly_type || null;
+};
+
+const getConfidence = (item: TelemetryData): number | null => {
+  return item.ml_prediction?.confidence || null;
+};
+
+const formatAnomalyType = (type: string): string => {
+  return type
+    .toLowerCase()
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
 };
 
 export default function TelemetryTable({
@@ -61,109 +51,311 @@ export default function TelemetryTable({
   onPageChange,
 }: Props) {
   const sortedHistory = useMemo(
-    () => [...history].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()),
+    () =>
+      [...history].sort(
+        (a, b) => getTimestamp(b.timestamp).getTime() - getTimestamp(a.timestamp).getTime()
+      ),
     [history]
   );
 
   const totalPages = Math.ceil(sortedHistory.length / PAGE_SIZE);
-
   const paginatedHistory = useMemo(
-    () => sortedHistory.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
+    () =>
+      sortedHistory.slice(
+        (currentPage - 1) * PAGE_SIZE,
+        currentPage * PAGE_SIZE
+      ),
     [sortedHistory, currentPage]
   );
-    if (history.length === 0) {
+
+  const anomalyCount = useMemo(() => 
+    sortedHistory.filter(item => hasAnomaly(item)).length,
+    [sortedHistory]
+  );
+
+  const formatTime = (timestamp: string | Date): string => {
+    const date = getTimestamp(timestamp);
+    return date.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  };
+
+  const formatDate = (timestamp: string | Date): string => {
+    const date = getTimestamp(timestamp);
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+  };
+
+  if (history.length === 0) {
     return (
-      <div className={`${theme.card.base} p-4`}>
-        <h3 className={theme.typography.heading.h3}>Detailed Records</h3>
-        <p style={{ color: theme.colors.text.secondary, marginTop: "1rem" }}>
-          No telemetry records available.
+      <div className="bg-white border border-slate-200 rounded-lg p-8 text-center">
+        <div className="mx-auto w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
+          <Cpu className="w-8 h-8 text-slate-400" />
+        </div>
+        <h3 className="text-lg font-semibold text-slate-900 mb-2">No Telemetry Data</h3>
+        <p className="text-sm text-slate-600">
+          No telemetry records available for the selected filters
         </p>
       </div>
     );
   }
 
   return (
-    <div className={`${theme.card.base} overflow-hidden`}>
-      <h3 className={`${theme.typography.heading.h3} p-4 border-b`} style={{ backgroundColor: theme.colors.background.hover, borderColor: theme.colors.border.default }}>
-        Detailed Records
-      </h3>
+    <div className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm">
+      {/* Header */}
+      <div className="px-6 py-4 bg-gradient-to-r from-slate-50 to-blue-50 border-b border-slate-200">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <h3 className="text-lg font-semibold text-slate-900">Telemetry Records</h3>
+            {anomalyCount > 0 && (
+              <div className="flex items-center gap-2 px-3 py-1 bg-red-100 border border-red-200 rounded-full">
+                <Brain className="w-4 h-4 text-red-600" />
+                <span className="text-sm font-semibold text-red-700">
+                  {anomalyCount} Anomal{anomalyCount === 1 ? 'y' : 'ies'}
+                </span>
+              </div>
+            )}
+          </div>
+          <div className="text-sm text-slate-600 font-medium">
+            {sortedHistory.length.toLocaleString()} total records
+          </div>
+        </div>
+      </div>
 
+      {/* Table */}
       <div className="overflow-x-auto">
-        <table className="table-auto w-full">
-          <thead style={{ backgroundColor: theme.colors.background.hover }}>
+        <table className="w-full">
+          <thead className="bg-slate-50 border-b border-slate-200">
             <tr>
-              <th className="px-4 py-3 text-left" style={{ color: theme.colors.text.label }}>Timestamp</th>
-              <th className="px-4 py-3 text-center" style={{ color: theme.colors.text.label }}>Status</th>
-              <th className="px-4 py-3 text-center" style={{ color: theme.colors.text.label }}>Battery</th>
-              <th className="px-4 py-3 text-center" style={{ color: theme.colors.text.label }}>Motor Temp</th>
-              <th className="px-4 py-3 text-center" style={{ color: theme.colors.text.label }}>Motor Current</th>
-              <th className="px-4 py-3 text-center" style={{ color: theme.colors.text.label }}>CPU Load</th>
-              <th className="px-4 py-3 text-center" style={{ color: theme.colors.text.label }}>Velocity</th>
-              <th className="px-4 py-3 text-center" style={{ color: theme.colors.text.label }}>Anomaly</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                Timestamp
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                Robot
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                Battery
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                Temp
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                CPU Load
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                Status
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                Anomaly Detection
+              </th>
             </tr>
           </thead>
 
-          <tbody>
-            {paginatedHistory.map((item, idx) => (
-              <tr
-                key={item._id}
-                className="transition-colors hover:bg-gray-100"
-                style={{
-                  borderTop: `1px solid ${theme.colors.border.light}`,
-                  backgroundColor: idx % 2 === 0 ? theme.colors.background.card : theme.colors.background.main,
-                }}
-              >
-                <td className="px-4 py-3 text-sm font-mono" style={{ color: theme.colors.text.secondary }}>
-                  {new Date(item.timestamp).toLocaleString()}
-                </td>
-                <td className="px-4 py-3">
-                  <div
-                    className="flex items-center justify-center gap-1 px-2 py-1 rounded-full mx-auto w-fit"
-                    style={{
-                      color: getStatusStyles(item.status).text,
-                      backgroundColor: getStatusStyles(item.status).bg,
-                      border: `1px solid ${getStatusStyles(item.status).border}`,
-                    }}
-                  >
-                    {getStatusIcon(item.status)}
-                    <span className="text-xs font-semibold">{item.status}</span>
-                  </div>
-                </td>
-                <td className="px-4 py-3 text-center" style={{ color: theme.colors.text.primary }}>{item.battery}%</td>
-                <td className="px-4 py-3 text-center" style={{ color: theme.colors.text.primary }}>{item.motor_temp}°C</td>
-                <td className="px-4 py-3 text-center" style={{ color: theme.colors.text.primary }}>{item.motor_current}A</td>
-                <td className="px-4 py-3 text-center" style={{ color: theme.colors.text.primary }}>{item.cpu_load}%</td>
-                <td className="px-4 py-3 text-center" style={{ color: theme.colors.text.primary }}>{item.velocity} m/s</td>
-                <td className="px-4 py-3 text-center">
-                  <span
-                    style={{
-                      color: item.anomaly_score > 0.7 ? theme.colors.status.critical.main : theme.colors.text.primary,
-                      fontWeight: item.anomaly_score > 0.7 ? 600 : 400,
-                    }}
-                  >
-                    {(item.anomaly_score * 100).toFixed(1)}%
-                  </span>
-                </td>
-              </tr>
-            ))}
+          <tbody className="divide-y divide-slate-100">
+            {paginatedHistory.map((item, idx) => {
+              const itemHasAnomaly = hasAnomaly(item);
+              const anomalyType = getAnomalyType(item);
+              const confidence = getConfidence(item);
+              
+              return (
+                <tr
+                  key={item._id}
+                  className={`hover:bg-slate-50 transition-colors ${
+                    itemHasAnomaly ? 'bg-red-50/30 border-l-4 border-l-red-500' : ''
+                  }`}
+                >
+                  {/* Timestamp */}
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium text-slate-900">
+                        {formatTime(item.timestamp)}
+                      </span>
+                      <span className="text-xs text-slate-500">
+                        {formatDate(item.timestamp)}
+                      </span>
+                    </div>
+                  </td>
+
+                  {/* Robot ID */}
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <span className="text-sm font-mono font-semibold text-indigo-600">
+                      {item.robot_id}
+                    </span>
+                  </td>
+
+                  {/* Battery */}
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <div className="flex items-center gap-2">
+                      <Battery className={`w-4 h-4 ${
+                        item.battery_level > 50 ? 'text-emerald-600' :
+                        item.battery_level > 20 ? 'text-amber-600' :
+                        'text-red-600'
+                      }`} />
+                      <span className="text-sm font-semibold text-slate-900">
+                        {item.battery_level.toFixed(0)}%
+                      </span>
+                    </div>
+                  </td>
+
+                  {/* Temperature */}
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <div className="flex items-center gap-2">
+                      <Thermometer className={`w-4 h-4 ${
+                        item.temperature < 60 ? 'text-emerald-600' :
+                        item.temperature < 75 ? 'text-amber-600' :
+                        'text-red-600'
+                      }`} />
+                      <span className="text-sm font-semibold text-slate-900">
+                        {item.temperature.toFixed(1)}°C
+                      </span>
+                    </div>
+                  </td>
+
+                  {/* CPU Load */}
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <div className="flex items-center gap-2">
+                      <Cpu className="w-4 h-4 text-slate-500" />
+                      <span className="text-sm font-semibold text-slate-900">
+                        {item.cpu_load.toFixed(0)}%
+                      </span>
+                    </div>
+                  </td>
+
+                  {/* Status */}
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    {itemHasAnomaly ? (
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-100 border border-red-200 rounded-full">
+                        <AlertCircle className="w-3.5 h-3.5 text-red-600" />
+                        <span className="text-xs font-semibold text-red-700 uppercase">Critical</span>
+                      </div>
+                    ) : (
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-100 border border-emerald-200 rounded-full">
+                        <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                        <span className="text-xs font-semibold text-emerald-700 uppercase">Normal</span>
+                      </div>
+                    )}
+                  </td>
+
+                  {/* Anomaly Detection */}
+                  <td className="px-4 py-3">
+                    {itemHasAnomaly ? (
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                          <Brain className="w-4 h-4 text-red-600" />
+                          <span className="text-sm font-semibold text-red-700">
+                            {anomalyType ? formatAnomalyType(anomalyType) : 'Detected'}
+                          </span>
+                        </div>
+                        {confidence && (
+                          <div className="flex items-center gap-2">
+                            <div className="w-full max-w-[120px] bg-slate-200 rounded-full h-1.5">
+                              <div 
+                                className="bg-red-500 h-1.5 rounded-full transition-all"
+                                style={{ width: `${confidence * 100}%` }}
+                              />
+                            </div>
+                            <span className="text-xs font-medium text-slate-600">
+                              {(confidence * 100).toFixed(0)}%
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-sm text-slate-400">—</span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
 
-      {/* Pagination Controls */}
-      <div className="flex flex-col sm:flex-row justify-between items-center p-4 border-t" style={{ backgroundColor: theme.colors.background.hover, borderColor: theme.colors.border.default }}>
-        <div className="text-sm mb-2 sm:mb-0" style={{ color: theme.colors.text.secondary }}>
-          Displaying {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, sortedHistory.length)} of {sortedHistory.length} records
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" disabled={currentPage <= 1} onClick={() => onPageChange(currentPage - 1)} className="px-3 py-1 text-sm">Previous</Button>
-
-          <span className="px-3 py-1 text-sm font-medium rounded" style={{ color: theme.colors.text.primary, backgroundColor: theme.colors.background.card }}>
-            Page {currentPage} of {totalPages}
+      {/* Enhanced Pagination */}
+      <div className="flex items-center justify-between px-6 py-4 bg-slate-50 border-t border-slate-200">
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-slate-600">
+            Showing <span className="font-semibold text-slate-900">{(currentPage - 1) * PAGE_SIZE + 1}</span> to{' '}
+            <span className="font-semibold text-slate-900">
+              {Math.min(currentPage * PAGE_SIZE, sortedHistory.length)}
+            </span>{' '}
+            of <span className="font-semibold text-slate-900">{sortedHistory.length}</span> records
           </span>
+        </div>
+        
+        <div className="flex items-center gap-1">
+          {/* First Page */}
+          <button
+            onClick={() => onPageChange(1)}
+            disabled={currentPage === 1}
+            className="p-2 rounded-md hover:bg-slate-200 disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-colors"
+            title="First page"
+          >
+            <ChevronsLeft className="w-4 h-4 text-slate-600" />
+          </button>
 
-          <Button variant="outline" disabled={currentPage >= totalPages} onClick={() => onPageChange(currentPage + 1)} className="px-3 py-1 text-sm">Next</Button>
+          {/* Previous */}
+          <button
+            onClick={() => onPageChange(currentPage - 1)}
+            disabled={currentPage === 1}
+            className="px-3 py-2 rounded-md text-sm font-medium text-slate-700 hover:bg-slate-200 disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-colors"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+
+          {/* Page Numbers */}
+          <div className="flex items-center gap-1 mx-2">
+            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+              let pageNum;
+              if (totalPages <= 5) {
+                pageNum = i + 1;
+              } else if (currentPage <= 3) {
+                pageNum = i + 1;
+              } else if (currentPage >= totalPages - 2) {
+                pageNum = totalPages - 4 + i;
+              } else {
+                pageNum = currentPage - 2 + i;
+              }
+
+              return (
+                <button
+                  key={pageNum}
+                  onClick={() => onPageChange(pageNum)}
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                    currentPage === pageNum
+                      ? 'bg-indigo-600 text-white'
+                      : 'text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  {pageNum}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Next */}
+          <button
+            onClick={() => onPageChange(currentPage + 1)}
+            disabled={currentPage === totalPages}
+            className="px-3 py-2 rounded-md text-sm font-medium text-slate-700 hover:bg-slate-200 disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-colors"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+
+          {/* Last Page */}
+          <button
+            onClick={() => onPageChange(totalPages)}
+            disabled={currentPage === totalPages}
+            className="p-2 rounded-md hover:bg-slate-200 disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-colors"
+            title="Last page"
+          >
+            <ChevronsRight className="w-4 h-4 text-slate-600" />
+          </button>
         </div>
       </div>
     </div>

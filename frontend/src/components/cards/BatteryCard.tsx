@@ -5,32 +5,45 @@ import { theme } from "../../config/theme";
 type BatteryCardProps = { 
   battery: number;
   anomaly?: boolean;
+  className?: string;
 };
 
 export const BatteryCard = ({ battery, anomaly }: BatteryCardProps) => {
-  // Define thresholds consistent with simulator
+  // Thresholds
   const BATTERY_WARNING = 20;
   const BATTERY_CRITICAL = 10;
 
+  // Determine status & colors
   let statusText = "Normal";
-  let statusColor = "#16a34a"; // green
+  let statusColor = theme.colors.status.good.main; // green
+  let bgColor = theme.colors.status.good.bg;
 
   if (battery < BATTERY_CRITICAL) {
     statusText = "Critical";
-    statusColor = "#dc2626"; // red
+    statusColor = theme.colors.status.critical.main; // red
+    bgColor = theme.colors.status.critical.bg;
   } else if (battery < BATTERY_WARNING) {
     statusText = "Warning";
-    statusColor = "#facc15"; // yellow
+    statusColor = theme.colors.status.warning.main; // yellow/orange
+    bgColor = theme.colors.status.warning.bg;
+  }
+
+  // Override colors if anomaly is true
+  if (anomaly) {
+    statusText = "Battery Anomaly";
+    statusColor = theme.colors.status.critical.main;
+    bgColor = theme.colors.status.critical.bg;
   }
 
   return (
-    <div className={`${theme.card.base} ${theme.card.padding} flex flex-col items-center ${
-      anomaly ? 'ring-2 ring-red-500 ring-offset-2' : ''
-    }`}>
-      <h3 className={`${theme.typography.label} mb-4`}>
+    <div
+      className={`${theme.card.base} ${theme.card.padding} flex flex-col items-center`}
+      style={{ backgroundColor: bgColor }}
+    >
+      <h3 className={`${theme.typography.label} mb-4 flex items-center gap-2`}>
         Battery
         {anomaly && (
-          <span className="ml-2 text-red-600 text-sm font-semibold">⚠️ ANOMALY</span>
+          <span className="text-red-600 text-sm font-semibold animate-pulse">⚠️ ANOMALY</span>
         )}
       </h3>
       
@@ -39,16 +52,20 @@ export const BatteryCard = ({ battery, anomaly }: BatteryCardProps) => {
           value={battery}
           text={`${battery}%`}
           styles={buildStyles({ 
-            pathColor: anomaly ? '#dc2626' : statusColor, 
+            pathColor: statusColor,
             textColor: theme.colors.text.primary,
             trailColor: theme.colors.border.light,
-            textSize: "24px"
+            textSize: "24px",
+            pathTransitionDuration: 0.5,
           })}
         />
       </div>
       
-      <p className={`${theme.typography.caption} mt-4 ${anomaly ? 'text-red-600 font-semibold' : ''}`}>
-        {anomaly ? '⚠️ Battery Anomaly Detected' : statusText}
+      <p
+        className={`${theme.typography.caption} mt-4 font-semibold`}
+        style={{ color: statusColor }}
+      >
+        {statusText}
       </p>
     </div>
   );

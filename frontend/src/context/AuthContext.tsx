@@ -1,18 +1,12 @@
 import { createContext } from "react";
+import type { User } from "../types/user";
 
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-}
-
-interface AuthState {
+export interface AuthState {
   user: User | null;
   accessToken: string | null;
 }
 
-type AuthAction =
+export type AuthAction =
   | { type: "LOGIN"; payload: AuthState }
   | { type: "LOGOUT" };
 

@@ -6,177 +6,201 @@ import {
   YAxis,
   Tooltip,
   CartesianGrid,
-  Legend,
   ResponsiveContainer,
-  ReferenceLine,
 } from "recharts";
 import type { TelemetryData } from "../../types/telemetry";
-import { Button } from "../ui/button";
 import { theme } from "../../config/theme";
 
 interface Props {
   history: TelemetryData[];
 }
 
-const metrics = [
+type MetricKey = 
+  | "battery_level" 
+  | "battery_health"
+  | "temperature" 
+  | "motor_current" 
+  | "cpu_load" 
+  | "velocity" 
+  | "pc_cpu_load"
+  | "pc_memory_load"
+  | "pc_temperature";
+
+interface MetricConfig {
+  key: MetricKey;
+  label: string;
+  color: string;
+  unit: string;
+}
+
+const metrics: MetricConfig[] = [
   {
-    key: "battery",
-    label: "Battery (%)",
+    key: "battery_level",
+    label: "Battery Level",
     color: theme.colors.metrics.battery.main,
-    lightColor: theme.colors.metrics.battery.light,
-    bgColor: theme.colors.metrics.battery.bg,
+    unit: "%",
   },
   {
-    key: "motor_temp",
-    label: "Motor Temp (°C)",
+    key: "battery_health",
+    label: "Battery Health",
+    color: theme.colors.status.good.main,
+    unit: "%",
+  },
+  {
+    key: "temperature",
+    label: "Motor Temperature",
     color: theme.colors.metrics.motorTemp.main,
-    lightColor: theme.colors.metrics.motorTemp.light,
-    bgColor: theme.colors.metrics.motorTemp.bg,
+    unit: "°C",
   },
   {
     key: "motor_current",
-    label: "Motor Current (A)",
+    label: "Motor Current",
     color: theme.colors.metrics.motorCurrent.main,
-    lightColor: theme.colors.metrics.motorCurrent.light,
-    bgColor: theme.colors.metrics.motorCurrent.bg,
+    unit: "A",
   },
   {
     key: "cpu_load",
-    label: "CPU Load (%)",
+    label: "Robot CPU Load",
     color: theme.colors.metrics.cpuLoad.main,
-    lightColor: theme.colors.metrics.cpuLoad.light,
-    bgColor: theme.colors.metrics.cpuLoad.bg,
+    unit: "%",
   },
   {
     key: "velocity",
-    label: "Velocity (m/s)",
+    label: "Velocity",
     color: theme.colors.metrics.velocity.main,
-    lightColor: theme.colors.metrics.velocity.light,
-    bgColor: theme.colors.metrics.velocity.bg,
+    unit: "m/s",
   },
   {
-    key: "anomaly_score",
-    label: "Anomaly Score",
-    color: theme.colors.metrics.anomalyScore.main,
-    lightColor: theme.colors.metrics.anomalyScore.light,
-    bgColor: theme.colors.metrics.anomalyScore.bg,
+    key: "pc_cpu_load",
+    label: "PC CPU Load",
+    color: theme.colors.chart.tertiary,
+    unit: "%",
+  },
+  {
+    key: "pc_memory_load",
+    label: "PC Memory Load",
+    color: theme.colors.chart.secondary,
+    unit: "%",
+  },
+  {
+    key: "pc_temperature",
+    label: "PC Temperature",
+    color: theme.colors.metrics.pcTemperature.main,
+    unit: "°C",
   },
 ];
 
-const getStatusStyles = (status: string) => {
-  switch (status) {
-    case "NORMAL":
-      return { text: theme.colors.status.good.main };
-    case "WARNING":
-      return { text: theme.colors.status.warning.main };
-    case "CRITICAL":
-      return { text: theme.colors.status.critical.main };
-    default:
-      return { text: theme.colors.text.secondary };
-  }
-};
-
 export default function MetricChart({ history }: Props) {
-  const [selectedMetric, setSelectedMetric] = useState<string>("battery");
+  // ✅ ALL HOOKS FIRST - before any returns
+  const [selectedMetric, setSelectedMetric] = useState<MetricKey>("battery_level");
 
-  if (history.length === 0) {
+  const sortedHistory = useMemo(
+    () => [...history].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime()),
+    [history]
+  );
+
+  const chartData = useMemo(() => {
+    return sortedHistory.filter(item => {
+      const value = item[selectedMetric];
+      return value !== undefined && value !== null && !isNaN(Number(value));
+    });
+  }, [sortedHistory, selectedMetric]);
+
+  // ✅ NOW we can do conditional returns - AFTER all hooks
+  const selectedMetricConfig = metrics.find((m) => m.key === selectedMetric);
+  const hasData = chartData.length > 0;
+  const isEmpty = sortedHistory.length === 0;
+
+  if (isEmpty) {
     return (
       <div className={`${theme.card.base} ${theme.card.padding}`}>
-        <h3 className={theme.typography.heading.h3}>Detailed Metric View</h3>
+        <h3 className={theme.typography.heading.h3}>Metric Chart</h3>
         <p style={{ color: theme.colors.text.secondary, marginTop: "1rem" }}>
-          No telemetry data available for metrics.
+          No telemetry data available.
         </p>
       </div>
     );
   }
 
-  const sortedHistory = useMemo(
-    () =>
-      [...history].sort(
-        (a, b) => a.timestamp.getTime() - b.timestamp.getTime()
-      ),
-    [history]
-  );
-
-  const statusChanges = useMemo(() => {
-    const changes: Array<{ timestamp: string; to: string }> = [];
-    for (let i = 1; i < sortedHistory.length; i++) {
-      if (sortedHistory[i].status !== sortedHistory[i - 1].status) {
-        changes.push({
-          timestamp: sortedHistory[i].timestamp.toString(),
-          to: sortedHistory[i].status,
-        });
-      }
-    }
-    return changes;
-  }, [sortedHistory]);
-
-  const selectedMetricConfig = metrics.find((m) => m.key === selectedMetric);
-
   return (
     <div className={`${theme.card.base} ${theme.card.padding}`}>
-      <h3 className={theme.typography.heading.h3}>Detailed Metric View</h3>
-      <div className="flex gap-2 mb-4 mt-3 flex-wrap">
+      <div className="mb-4">
+        <h3 className={theme.typography.heading.h3}>Metric Chart</h3>
+      </div>
+
+      {/* Metric selector buttons */}
+      <div className="flex gap-2 mb-4 flex-wrap">
         {metrics.map((metric) => (
-          <Button
+          <button
             key={metric.key}
-            variant={selectedMetric === metric.key ? "default" : "outline"}
             onClick={() => setSelectedMetric(metric.key)}
+            className="px-3 py-1.5 rounded text-sm font-medium transition-all"
+            style={{
+              backgroundColor: selectedMetric === metric.key ? metric.color : theme.colors.neutral[100],
+              color: selectedMetric === metric.key ? theme.colors.text.inverted : theme.colors.text.primary,
+              border: `1px solid ${selectedMetric === metric.key ? metric.color : theme.colors.border.default}`,
+            }}
           >
             {metric.label}
-          </Button>
+          </button>
         ))}
       </div>
 
-      <ResponsiveContainer width="100%" height={300}>
-        <LineChart data={sortedHistory}>
-          <XAxis
-            dataKey="timestamp"
-            tickFormatter={(t) => new Date(t).toLocaleTimeString()}
-            angle={-45}
-            textAnchor="end"
-            height={80}
-            stroke={theme.colors.chart.axis}
-          />
-          <YAxis stroke={theme.colors.chart.axis} />
-          <Tooltip
-            labelFormatter={(t) => new Date(t).toLocaleString()}
-            formatter={(value: any, name?: string) => {
-              if (name === "status") return [value, "Status"];
-              return [
-                value,
-                metrics.find((m) => m.key === name)?.label || name,
-              ];
-            }}
-            contentStyle={{
-              backgroundColor: theme.colors.background.card,
-              borderColor: theme.colors.border.default,
-            }}
-          />
-          <CartesianGrid stroke={theme.colors.chart.grid} strokeDasharray="5 5" />
-          <Legend />
-          <Line
-            type="monotone"
-            dataKey={selectedMetric}
-            stroke={selectedMetricConfig?.color}
-            strokeWidth={2}
-            dot={{ r: 3 }}
-          />
-          {statusChanges.map((change, idx) => (
-            <ReferenceLine
-              key={idx}
-              x={change.timestamp}
-              stroke={getStatusStyles(change.to).text}
-              strokeDasharray="3 3"
-              label={{
-                value: change.to,
-                position: "top",
-                fill: getStatusStyles(change.to).text,
+      {/* No data message */}
+      {!hasData && (
+        <div className="flex items-center justify-center h-64 border rounded" style={{ borderColor: theme.colors.border.default }}>
+          <p style={{ color: theme.colors.text.secondary }}>
+            No data available for {selectedMetricConfig?.label}
+          </p>
+        </div>
+      )}
+
+      {/* Chart */}
+      {hasData && (
+        <ResponsiveContainer width="100%" height={300}>
+          <LineChart data={chartData}>
+            <CartesianGrid stroke={theme.colors.chart.grid} strokeDasharray="5 5" />
+            <XAxis
+              dataKey="timestamp"
+              tickFormatter={(t) => new Date(t).toLocaleTimeString()}
+              angle={-45}
+              textAnchor="end"
+              height={80}
+              stroke={theme.colors.chart.axis}
+            />
+            <YAxis 
+              stroke={theme.colors.chart.axis}
+              label={{ 
+                value: selectedMetricConfig?.unit, 
+                angle: -90, 
+                position: 'insideLeft',
+                style: { fill: theme.colors.text.secondary }
               }}
             />
-          ))}
-        </LineChart>
-      </ResponsiveContainer>
+            <Tooltip
+              labelFormatter={(t) => new Date(t).toLocaleString()}
+              formatter={(value: any) => [
+                `${typeof value === "number" ? value.toFixed(2) : value}${selectedMetricConfig?.unit}`,
+                selectedMetricConfig?.label
+              ]}
+              contentStyle={{
+                backgroundColor: theme.colors.background.card,
+                borderColor: theme.colors.border.default,
+                borderRadius: "8px",
+              }}
+            />
+            
+            <Line
+              type="monotone"
+              dataKey={selectedMetric}
+              stroke={selectedMetricConfig?.color}
+              strokeWidth={2}
+              dot={false}
+              activeDot={{ r: 5 }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      )}
     </div>
   );
 }

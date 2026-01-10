@@ -26,3 +26,16 @@ axiosPrivate.interceptors.request.use(
   },
   (error) => Promise.reject(error)
 );
+
+// Add response interceptor for token expiration
+axiosPrivate.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      window.location.href = "/login";
+    }
+    return Promise.reject(error);
+  }
+);

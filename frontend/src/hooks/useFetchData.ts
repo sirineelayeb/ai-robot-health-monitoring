@@ -1,13 +1,17 @@
 import { useState, useEffect, useCallback } from "react";
-import axios from "axios";
+import axios, { AxiosError } from "axios";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
 interface UseFetchOptions {
   immediate?: boolean;
-  params?: Record<string, any>;
-  dependencies?: any[];
-  interval?: number; // optional polling
+  params?: Record<string, unknown>;
+  dependencies?: unknown[];
+  interval?: number;
+}
+
+interface AxiosErrorResponse {
+  message?: string;
 }
 
 export function useFetch<T>(
@@ -32,11 +36,22 @@ export function useFetch<T>(
 
       const res = await axios.get<T>(`${API_URL}${endpoint}`, {
         params,
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
       });
 
       setData(res.data);
-    } catch (err: any) {
-      setError(err.message || "Fetch failed");
+    } catch (err: unknown) {
+      if (err instanceof AxiosError) {
+        const axiosError = err as AxiosError<AxiosErrorResponse>;
+        const errorMessage = axiosError.response?.data?.message || axiosError.message || "Fetch failed";
+        setError(errorMessage);
+      } else if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("An unknown error occurred");
+      }
     } finally {
       setLoading(false);
     }
@@ -46,7 +61,7 @@ export function useFetch<T>(
     if (immediate) fetchData();
   }, [fetchData, immediate, ...dependencies]);
 
-  // Optional polling (NOT for sockets)
+  // Optional polling
   useEffect(() => {
     if (!interval) return;
     const id = setInterval(fetchData, interval);
