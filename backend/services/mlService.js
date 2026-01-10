@@ -1,32 +1,28 @@
-import { spawn } from "child_process";
+import fs from "fs";
+import os from "os";
+import path from "path";
+import { exec } from "child_process";
+import logger from "../utils/logger.js";
 
-/**
- * Sends telemetry data to the Python ML model and gets prediction.
- * @param {Object} telemetryData - The telemetry data (battery, motor_temp, etc.)
- * @returns {Promise<Object>} - The ML prediction result
- */
-export const predictAnomaly = (telemetryData) => {
-  return new Promise((resolve, reject) => {
-    const pythonProcess = spawn("python", ["./ml/predict.py", JSON.stringify(telemetryData)]);
+export const predictAnomaly = async (telemetry) => {
+  return new Promise((resolve) => {
+    const tmpFile = path.join(os.tmpdir(), `telemetry_${Date.now()}.json`);
+    fs.writeFileSync(tmpFile, JSON.stringify(telemetry));
 
-    let result = "";
-    let error = "";
+    const cmd = `python "ml/inference/predict.py" "${tmpFile}"`;
+    exec(cmd, { shell: true }, (error, stdout, stderr) => {
+      fs.unlinkSync(tmpFile); // cleanup temp file
 
-    pythonProcess.stdout.on("data", (data) => {
-      result += data.toString();
-    });
-
-    pythonProcess.stderr.on("data", (data) => {
-      error += data.toString();
-    });
-
-    pythonProcess.on("close", (code) => {
-      if (error) return reject(new Error(error));
+      if (error) {
+        logger.error("ML Prediction Error:", stderr || error.message);
+        return resolve({ success: false });
+      }
       try {
-        const json = JSON.parse(result);
-        resolve(json);
-      } catch (err) {
-        reject(err);
+        const result = JSON.parse(stdout);
+        resolve(result);
+      } catch (e) {
+        logger.error("ML Prediction Parse Error:", e.message);
+        resolve({ success: false });
       }
     });
   });

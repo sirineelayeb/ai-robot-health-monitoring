@@ -1,0 +1,10 @@
+{
+  "battery_level": 80,
+  "battery_health": 90,
+  "battery_drop_rate": 0.2,
+  "battery_trend": -0.1,
+  "temperature": 45,
+  "motor_current": 2.1,
+  "cpu_load": 35,
+  "velocity": 1.5
+}

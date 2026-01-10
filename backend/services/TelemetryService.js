@@ -1,16 +1,30 @@
 import Telemetry from "../models/Telemetry.js";
 import logger from "../utils/logger.js";
-// import { predictAnomaly } from "./mlService.js"; // ML integration - commented for now
-import THRESHOLDS, { calculateStatus, isAnomalousReading } from "../config/thresholds.js";
-
+import { predictAnomaly } from "./mlService.js";
+import { detectIssues, calculateStatus, DEFAULT_THRESHOLDS } from '../config/thresholds.js';
+import thresholdService from '../services/thresholdService.js';
 /**
- * Process and save telemetry data with anomaly detection
+ * Process telemetry from robot
+ * @param {Object} data - Telemetry payload
+ * @returns {Object} - Processed telemetry with ML prediction
  */
-export const processTelemetry = async (data) => {
+// services/telemetryService.js - CORRECTED VERSION
+export const processTelemetry = async (data, io) => {
   try {
+    if (!data || !data.robot_id) {
+      logger.error("Invalid telemetry payload: missing robot_id");
+      throw new Error("Invalid telemetry payload");
+    }
+
+    const robot_id = data.robot_id;
+    
+    // -------------------- RAW TELEMETRY ONLY --------------------
     const {
-      robot_id,
+      timestamp,
       battery_level,
+      battery_health,
+      battery_drop_rate,
+      battery_trend,
       motor_current,
       cpu_load,
       temperature,
@@ -24,69 +38,298 @@ export const processTelemetry = async (data) => {
       pc_network_sent,
       pc_network_recv,
       pc_temperature,
-      timestamp,
     } = data;
 
-    if (!robot_id) {
-      throw new Error("robot_id is required");
-    }
-
-    const telemetryData = {
+    // -------------------- DETECT ALL ISSUES USING THRESHOLDS --------------------
+    const issues = await detectIssues({
+      robot_id,
+      timestamp,
       battery_level,
+      battery_health,
       motor_current,
       cpu_load,
       temperature,
       velocity,
       encoder_ok,
       lidar_ok,
-      camera_ok
-    };
+      camera_ok,
+      pc_cpu_load,
+      pc_disk_usage,
+      pc_temperature,
+      pc_network_sent,
+      pc_network_recv
+    }, robot_id);
 
-    // Calculate status based on thresholds
-    const status = calculateStatus(telemetryData);
-
-    // Only consider CRITICAL status as an anomaly
-    const is_anomaly = status === THRESHOLDS.STATUS_LEVELS.CRITICAL;
-
-    // Save telemetry to database
-    const telemetry = await Telemetry.create({
-      robot_id,
-      timestamp: new Date(timestamp || Date.now()),
+    // -------------------- CALCULATE OVERALL STATUS --------------------
+    let status = await calculateStatus({
       battery_level,
+      temperature,
       motor_current,
-      cpu_load,
-      temperature, // stores PC temperature
       velocity,
+      cpu_load,
       encoder_ok,
       lidar_ok,
       camera_ok,
       pc_cpu_load,
-      pc_memory_load,
       pc_disk_usage,
-      pc_network_sent,
-      pc_network_recv,
       pc_temperature,
-      is_anomaly,
-      status,
-    });
+      pc_network_sent,
+      pc_network_recv
+    }, robot_id);
 
-    // Log based on status
-    if (is_anomaly) {
-      logger.warn(`⚠️ ANOMALY: ${status} | Bat:${battery_level}% Temp:${temperature}°C CPU:${cpu_load}% Motor:${motor_current}A | E:${encoder_ok} L:${lidar_ok} C:${camera_ok}`);
-    } else {
-      logger.debug(`✅ ${status}: Bat:${battery_level}% Temp:${temperature}°C CPU:${cpu_load}% Motor:${motor_current}A | E:${encoder_ok} L:${lidar_ok} C:${camera_ok}`);
+    // -------------------- ML PREDICTION --------------------
+    let mlPrediction = null;
+
+    try {
+      const telemetryForML = {
+        battery_level,
+        battery_health,
+        battery_drop_rate,
+        battery_trend,
+        temperature,
+        motor_current,
+        cpu_load,
+        velocity,
+      };
+
+      const rawMLPrediction = await predictAnomaly(telemetryForML);
+      
+      if (rawMLPrediction?.success) {
+        mlPrediction = {
+          is_anomaly: rawMLPrediction.is_anomaly || false,
+          anomaly_type: rawMLPrediction.anomaly_type,
+          confidence: rawMLPrediction.confidence || 0,
+          model_version: rawMLPrediction.model_version || "v1.0",
+          predicted_at: new Date(),
+        };
+        
+        // UPGRADE STATUS IF ML DETECTS ANOMALY
+        if (mlPrediction.is_anomaly && mlPrediction.confidence >= 0.6) {
+          if (mlPrediction.confidence >= 0.85) {
+            status = "CRITICAL";
+          } else if (status === "NORMAL") {
+            status = "WARNING";
+          }
+        }
+      }
+    } catch (err) {
+      logger.error("ML prediction failed:", err.message);
     }
 
-    return {
-      telemetry,
-      detection_method: is_anomaly ? "Rule-based" : "Normal"
+    // ================  DETERMINE is_anomaly AND anomaly_type ================
+    let is_anomaly = false;
+    let anomaly_type = null;
+    
+    // Helper function to map ISSUE_TYPES to Telemetry enum
+    const mapIssueTypeToAnomalyType = (issueType) => {
+      const mapping = {
+        "SENSOR_FAILURE": "SENSOR_FAILURE",
+        "OVERHEATING": "OVERHEATING",
+        "LOW_BATTERY": "LOW_BATTERY",
+        "BATTERY_DEGRADATION": "BATTERY_DEGRADATION",
+        "HIGH_CURRENT": "HIGH_CURRENT",
+        "CPU_OVERLOAD": "CPU_OVERLOAD",
+        "PC_CPU_OVERLOAD": "PC_CPU_OVERLOAD",
+        "PC_DISK_FULL": "PC_DISK_FULL",
+        "PC_OVERHEATING": "PC_OVERHEATING",
+        "ABNORMAL_VELOCITY": "ABNORMAL_VELOCITY",
+        "STALL_DETECTED": "STALL_DETECTED",
+        "NETWORK_ISSUE": "SYSTEM_ANOMALY" 
+      };
+      return mapping[issueType] || "SYSTEM_ANOMALY";
     };
+
+    // Priority 1: ML detection (if ML found anomaly)
+    if (mlPrediction?.is_anomaly && mlPrediction.anomaly_type !== "Normal") {
+      is_anomaly = true;
+      anomaly_type = mlPrediction.anomaly_type; // ML types: MOTOR_OVERHEATING, BATTERY_DEGRADATION, ABNORMAL_VELOCITY
+    }
+    // Priority 2: Rule-based detection (if no ML anomaly OR ML => "Normal")
+    else if (issues.length > 0) {
+      is_anomaly = true;
+      
+      // Determine most severe issue
+      const criticalIssues = issues.filter(i => i.severity === "CRITICAL");
+      const warningIssues = issues.filter(i => i.severity === "WARNING");
+      
+      const selectedIssue = criticalIssues[0] || warningIssues[0] || issues[0];
+      anomaly_type = mapIssueTypeToAnomalyType(selectedIssue.type);
+      
+      // Ensure status reflects rule-based issues
+      if (status === "NORMAL" && issues.length > 0) {
+        status = issues.some(i => i.severity === "CRITICAL") ? "CRITICAL" : "WARNING";
+      }
+    }
+    // ==============================================================================
+
+    // -------------------- SAVE TELEMETRY WITH DETECTED ISSUES --------------------
+    try {
+      const savedTelemetry = await Telemetry.create({
+        robot_id,
+        timestamp: new Date(timestamp || Date.now()),
+
+        // Raw telemetry
+        battery_level,
+        battery_health,
+        battery_drop_rate,
+        battery_trend,
+        motor_current,
+        cpu_load,
+        temperature,
+        velocity,
+
+        encoder_ok,
+        lidar_ok,
+        camera_ok,
+
+        pc_cpu_load,
+        pc_memory_load,
+        pc_disk_usage,
+        pc_network_sent,
+        pc_network_recv,
+        pc_temperature,
+
+        // Status and anomaly tracking - NOW SET CORRECTLY!
+        status,
+        is_anomaly,          
+        anomaly_type,         
+
+        // Store all detected issues
+        detected_issues: issues,
+
+        // ML prediction (only if available)
+        ...(mlPrediction && { ml_prediction: mlPrediction }),
+      });
+
+      // -------------------- EMIT ALERT IF ANOMALIES DETECTED --------------------
+      if (is_anomaly) {
+        const alertData = {
+          robot_id,
+          timestamp: savedTelemetry.timestamp,
+          status,
+          is_anomaly: true,
+          anomaly_type,
+          issues,
+          ml_anomaly: mlPrediction?.is_anomaly || false,
+          ml_prediction: mlPrediction,
+          telemetry_id: savedTelemetry._id,
+          metrics: {
+            battery_level,
+            temperature,
+            motor_current,
+            cpu_load,
+            velocity,
+            pc_cpu_load,
+            pc_disk_usage,
+            pc_temperature,
+            pc_network_sent,
+            pc_network_recv
+          }
+        };
+        
+        const room = `robot_${robot_id}`;
+        io.to(room).emit("threshold_alert", alertData);
+        io.emit("threshold_alert", alertData);
+        
+        logger.warn(
+          `${robot_id} ALERT: ${issues.length} rule issues | ` +
+          `ML Anomaly: ${mlPrediction?.is_anomaly ? 'YES' : 'NO'} | ` +
+          `Type: ${anomaly_type || 'None'} | Status: ${status}`
+        );
+      }
+
+      const mlTriggered = mlPrediction?.is_anomaly && mlPrediction.confidence >= 0.6;
+      const rulesTriggered = issues.length > 0;
+      
+      logger.info(
+        `${robot_id} | ${status} | ` +
+        `Anomaly:${is_anomaly ? 'YES' : 'NO'} | ` +
+        `Type:${anomaly_type || 'None'} | ` +
+        `Issues:${issues.length} | ` +
+        `ML:${mlPrediction?.is_anomaly ? 'YES' : 'NO'} | ` +
+        `Bat:${battery_level?.toFixed(1)}% | ` +
+        `Temp:${temperature?.toFixed(1)}°C`
+      );
+
+      logger.debug(
+        `[DETAILS] ${robot_id} | ML prediction: ${JSON.stringify(mlPrediction)} | ` +
+        `Rules triggered: ${rulesTriggered} | ML triggered: ${mlTriggered}`
+      );
+      // ==============================================================
+
+      // -------------------- SOCKET.IO BROADCAST --------------------
+      const socketData = {
+        _id: savedTelemetry._id,
+        robot_id,
+        timestamp: savedTelemetry.timestamp,
+        
+        // Robot sensors
+        battery_level,
+        battery_health,
+        battery_drop_rate,
+        battery_trend,
+        temperature,
+        motor_current,
+        cpu_load,
+        velocity,
+        
+        // Sensor health
+        encoder_ok,
+        lidar_ok,
+        camera_ok,
+        
+        // PC metrics
+        pc_cpu_load,
+        pc_memory_load,
+        pc_disk_usage,
+        pc_network_sent,
+        pc_network_recv,
+        pc_temperature,
+        
+        // Anomaly detection results 
+        status,
+        is_anomaly,
+        anomaly_type,
+        detected_issues: issues,
+        ml_prediction: mlPrediction,
+      };
+
+      // Emit to all clients and specific room
+      const robotRoom = `robot_${robot_id}`;
+      io.emit("telemetry", socketData);
+      io.to(robotRoom).emit("telemetry", socketData);
+      io.to(robotRoom).emit("robot_update", socketData);
+
+      // Emit separate ML alert if ML detected anomaly
+      if (mlPrediction?.is_anomaly) {
+        io.to(robotRoom).emit("ml_anomaly_alert", {
+          robot_id,
+          anomaly_type: mlPrediction.anomaly_type,
+          confidence: mlPrediction.confidence,
+          timestamp: savedTelemetry.timestamp
+        });
+      }
+
+      return savedTelemetry;
+      
+    } catch (saveError) {
+      logger.error("Failed to save telemetry:", saveError.message);
+      throw saveError;
+    }
 
   } catch (error) {
     logger.error("Error processing telemetry:", error.message);
     throw error;
   }
 };
+async function loadThresholds(robotId) {
+  try {
+    return await thresholdService.getThresholds(robotId);
+  } catch (error) {
+    console.error('Failed to load thresholds, using defaults:', error.message);
+    return DEFAULT_THRESHOLDS;
+  }
+}
 
 
 /**
@@ -125,22 +368,18 @@ export const getTelemetryHistory = async (robot_id, options = {}) => {
       status
     } = options;
 
-    // Build query
     const query = { robot_id };
 
-    // Add time range filter
     if (startTime || endTime) {
       query.timestamp = {};
       if (startTime) query.timestamp.$gte = new Date(startTime);
       if (endTime) query.timestamp.$lte = new Date(endTime);
     }
 
-    // Filter by anomalies
     if (onlyAnomalies) {
-      query.is_anomaly = true;
+      query["ml_prediction.is_anomaly"] = true;
     }
 
-    // Filter by status
     if (status) {
       query.status = status;
     }
@@ -169,7 +408,7 @@ export const getTelemetryHistory = async (robot_id, options = {}) => {
 };
 
 /**
- * Get telemetry by time range (for multiple robots or ML training data)
+ * Get telemetry by time range
  */
 export const getTelemetryByTimeRange = async (startTime, endTime, options = {}) => {
   try {
@@ -216,7 +455,7 @@ export const getTelemetryCount = async (robot_id, options = {}) => {
     }
 
     if (onlyAnomalies) {
-      query.is_anomaly = true;
+      query["ml_prediction.is_anomaly"] = true;
     }
 
     const count = await Telemetry.countDocuments(query);
@@ -229,7 +468,7 @@ export const getTelemetryCount = async (robot_id, options = {}) => {
 };
 
 /**
- * Get anomalies for a robot
+ * Get anomalies for a robot (ML-detected only)
  */
 export const getAnomalies = async (robot_id, options = {}) => {
   try {
@@ -237,7 +476,7 @@ export const getAnomalies = async (robot_id, options = {}) => {
 
     const query = {
       robot_id,
-      is_anomaly: true
+      "ml_prediction.is_anomaly": true
     };
 
     if (startTime || endTime) {
@@ -254,7 +493,7 @@ export const getAnomalies = async (robot_id, options = {}) => {
 
     const total = await Telemetry.countDocuments(query);
 
-    logger.debug(`Retrieved ${anomalies.length} anomalies for ${robot_id}`);
+    logger.debug(`Retrieved ${anomalies.length} ML anomalies for ${robot_id}`);
 
     return {
       data: anomalies,
@@ -297,7 +536,7 @@ export const getTelemetryStats = async (robot_id, hours = 24) => {
           avgMotorCurrent: { $avg: "$motor_current" },
           maxMotorCurrent: { $max: "$motor_current" },
           totalAnomalies: {
-            $sum: { $cond: ["$is_anomaly", 1, 0] }
+            $sum: { $cond: ["$ml_prediction.is_anomaly", 1, 0] }
           },
           totalRecords: { $sum: 1 },
           criticalCount: {
@@ -337,7 +576,7 @@ export const getTelemetryStats = async (robot_id, hours = 24) => {
 };
 
 /**
- * Delete old telemetry data (data retention)
+ * Delete old telemetry data
  */
 export const cleanupOldTelemetry = async (daysToKeep = 30) => {
   try {
@@ -368,7 +607,7 @@ export const getSensorHealthSummary = async (robot_id) => {
 
     const recentIssues = await Telemetry.countDocuments({
       robot_id,
-      timestamp: { $gte: new Date(Date.now() - 60 * 60 * 1000) }, // Last hour
+      timestamp: { $gte: new Date(Date.now() - 60 * 60 * 1000) },
       $or: [
         { encoder_ok: false },
         { lidar_ok: false },
@@ -391,45 +630,6 @@ export const getSensorHealthSummary = async (robot_id) => {
   }
 };
 
-// ========== ML TRAINING DATA EXPORT - COMMENTED FOR NOW ==========
-/**
- * Export telemetry data for ML training
- * This will be used later when training the ML model
- */
-// export const exportTelemetryForTraining = async (robot_id, options = {}) => {
-//   try {
-//     const {
-//       startTime,
-//       endTime,
-//       includeAnomaliesOnly = false
-//     } = options;
-
-//     const query = { robot_id };
-
-//     if (startTime || endTime) {
-//       query.timestamp = {};
-//       if (startTime) query.timestamp.$gte = new Date(startTime);
-//       if (endTime) query.timestamp.$lte = new Date(endTime);
-//     }
-
-//     if (includeAnomaliesOnly) {
-//       query.is_anomaly = true;
-//     }
-
-//     const data = await Telemetry.find(query)
-//       .select('battery_level motor_current cpu_load temperature encoder_ok lidar_ok camera_ok is_anomaly status timestamp')
-//       .sort({ timestamp: 1 })
-//       .lean();
-
-//     logger.info(`Exported ${data.length} records for ML training`);
-//     return data;
-//   } catch (error) {
-//     logger.error("Error exporting telemetry for training:", error.message);
-//     throw error;
-//   }
-// };
-// ================================================================
-
 export default {
   processTelemetry,
   getLatestTelemetry,
@@ -440,5 +640,4 @@ export default {
   getTelemetryStats,
   cleanupOldTelemetry,
   getSensorHealthSummary
-  // exportTelemetryForTraining // ML - commented for later
 };
