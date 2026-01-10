@@ -1,4 +1,4 @@
-// routes/alertRoutes.js
+// routes/alertRoutes.js - UPDATED
 import express from 'express';
 import { authMiddleware, requireAdmin } from '../middlewares/authMiddleware.js';
 import * as alertController from '../controllers/alertController.js';

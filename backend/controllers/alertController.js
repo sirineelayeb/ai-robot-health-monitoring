@@ -59,7 +59,108 @@ export const getRecentAlerts = async (req, res) => {
     });
   }
 };
+export const getAlerts = async (req, res) => {
+  try {
+    const {
+      robotId = "robot_001",
+      page = 1,
+      limit = 50,
+      status,
+      anomaly_type,
+      startDate,
+      endDate
+    } = req.query;
 
+    // Convert page and limit to numbers
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const skip = (pageNum - 1) * limitNum;
+
+    // Build query for anomalies only
+    const query = { 
+      robot_id: robotId,
+      $or: [
+        { status: { $in: ["WARNING", "CRITICAL"] } },
+        { "ml_prediction.is_anomaly": true },
+        { is_anomaly: true }
+      ]
+    };
+    
+    if (status) {
+      query.status = status.toUpperCase();
+    }
+    
+    if (anomaly_type && anomaly_type !== 'null' && anomaly_type !== 'undefined') {
+      query.anomaly_type = anomaly_type;
+    }
+    
+    if (startDate || endDate) {
+      query.timestamp = {};
+      if (startDate) {
+        query.timestamp.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        query.timestamp.$lte = new Date(endDate);
+      }
+    }
+
+    console.log('🔍 Alerts query:', JSON.stringify(query, null, 2));
+
+    // Execute query
+    const [alerts, total] = await Promise.all([
+      Telemetry.find(query)
+        .sort({ timestamp: -1 })
+        .skip(skip)
+        .limit(limitNum)
+        .lean(),
+      Telemetry.countDocuments(query)
+    ]);
+
+    console.log(`Found ${alerts.length} alerts (total: ${total})`);
+
+    // Transform to alert format
+    const transformedAlerts = alerts.map(telemetry => ({
+      id: telemetry._id.toString(),
+      robot_id: telemetry.robot_id,
+      timestamp: telemetry.timestamp,
+      status: telemetry.status,
+      anomaly_type: telemetry.anomaly_type,
+      is_anomaly: telemetry.is_anomaly,
+      issues: telemetry.detected_issues?.map(issue => ({
+        message: issue.message,
+        severity: issue.severity
+      })) || [],
+      metrics: {
+        battery_level: telemetry.battery_level,
+        temperature: telemetry.temperature,
+        cpu_load: telemetry.cpu_load,
+        velocity: telemetry.velocity,
+        motor_current: telemetry.motor_current
+      },
+      ml_prediction: telemetry.ml_prediction,
+      source: telemetry.ml_prediction?.is_anomaly ? 'ai' : 'rule'
+    }));
+
+    res.status(200).json({
+      success: true,
+      alerts: transformedAlerts,
+      pagination: {
+        total,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(total / limitNum)
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching alerts:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to fetch alerts',
+      error: error.message 
+    });
+  }
+};
 /**
  * GET /api/alerts/stats
  * Get alert statistics
