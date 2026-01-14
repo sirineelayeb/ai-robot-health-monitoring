@@ -259,7 +259,6 @@ initMQTT({
           `(${(telemetryData.ml_prediction.confidence * 100).toFixed(0)}%)`
         );
       }
-g
       if (config.env === "development") {
         logger.debug(
           `[MQTT->Socket] ${telemetryData.robot_id} | ` +
@@ -362,22 +361,23 @@ const startServer = async () => {
 
 const gracefulShutdown = async (signal) => {
   logger.info(`${signal} received. Starting graceful shutdown...`);
-  
-  server.close(() => {
-    logger.info("HTTP server closed");
-    
-    mongoose.connection.close(false, () => {
-      logger.info("MongoDB connection closed");
-      process.exit(0);
-    });
-  });
-  
-  // Force shutdown after 10 seconds
-  setTimeout(() => {
-    logger.error("Forced shutdown after timeout");
+
+  try {
+    if (server) {
+      await new Promise((resolve) => server.close(resolve));
+      logger.info("HTTP server closed");
+    }
+
+    await mongoose.connection.close();
+    logger.info("MongoDB connection closed");
+
+    process.exit(0);
+  } catch (err) {
+    logger.error("Graceful shutdown error:", err);
     process.exit(1);
-  }, 10000);
+  }
 };
+
 
 // ==================== PROCESS EVENT HANDLERS ====================
 
@@ -389,10 +389,24 @@ process.on("uncaughtException", (err) => {
   gracefulShutdown("UNCAUGHT_EXCEPTION"); 
 });
 
-process.on("unhandledRejection", (reason, promise) => { 
-  logger.error("Unhandled Rejection at:", promise, "reason:", reason); 
-  gracefulShutdown("UNHANDLED_REJECTION"); 
+process.on("unhandledRejection", async (err) => {
+  console.error("UNHANDLED_REJECTION:", err);
+
+  try {
+    if (server) {
+      await new Promise((resolve) => server.close(resolve));
+      console.log("HTTP server closed");
+    }
+
+    await mongoose.connection.close();
+    console.log("MongoDB connection closed");
+  } catch (shutdownErr) {
+    console.error("Shutdown error:", shutdownErr);
+  } finally {
+    process.exit(1);
+  }
 });
+
 
 // ==================== START SERVER ====================
 

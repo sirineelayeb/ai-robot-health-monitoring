@@ -1,5 +1,5 @@
-import User from "../models/User.js";
-import { ROLES } from "../models/User.js";
+import User from "../models/user.js";
+import { ROLES } from "../models/user.js";
 
 // Get ADMIN_EMAIL directly from env with trim
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL?.trim() || "admin@company.com";

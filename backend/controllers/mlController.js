@@ -1,5 +1,5 @@
 // backend/controllers/mlController.js
-import Telemetry from "../models/Telemetry.js";
+import Telemetry from "../models/telemetry.js";
 import { predictAnomaly } from "../services/mlService.js";
 
 /**

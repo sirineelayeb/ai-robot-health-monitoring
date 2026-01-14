@@ -1,4 +1,4 @@
-import User, { ROLES, ADMIN_EMAIL } from "../models/User.js";
+import User, { ROLES, ADMIN_EMAIL } from "../models/user.js";
 import jwt from "jsonwebtoken";
 import { config } from "../config/index.js";
 

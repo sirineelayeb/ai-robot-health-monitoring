@@ -1,0 +1,41 @@
+version: "3.9"
+services:
+  mongo:
+    image: mongo:6
+    ports:
+      - "27017:27017"
+
+  mqtt:
+    image: eclipse-mosquitto:2
+    container_name: mqtt
+    ports:
+      - "1883:1883" 
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
+      
+  backend:
+    build: ./backend
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./backend/.env
+    depends_on:
+      - mongo
+      - mqtt
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+
+  simulator:
+    build: ./robot-simulator
+    container_name: robot-simulator
+    depends_on:
+      - mqtt
+    environment:
+      - BROKER=mqtt
+      - PORT=1883
+    restart: unless-stopped

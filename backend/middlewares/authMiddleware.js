@@ -1,6 +1,6 @@
 import jwt from "jsonwebtoken";
 import { config } from "../config/index.js";
-import { ADMIN_EMAIL } from "../models/User.js";
+import { ADMIN_EMAIL } from "../models/user.js";
 
 export const authMiddleware = (req, res, next) => {
   const token = req.headers.authorization?.split(" ")[1];

@@ -1,4 +1,4 @@
-import time
+﻿import time
 import json
 import random
 import paho.mqtt.client as mqtt
@@ -9,7 +9,7 @@ from collections import deque
 
 # ==================== CONFIGURATION ====================
 class Config:
-    BROKER = "localhost"
+    BROKER = "mqtt"
     PORT = 1883
     TOPIC = "robot/telemetry"
     ROBOT_ID = "robot_001"
@@ -47,24 +47,38 @@ class RobotState:
 # ==================== MQTT CLIENT ====================
 class MQTTClient:
     def __init__(self):
-        self.client = mqtt.Client(client_id=f"{Config.ROBOT_ID}_simulator")
+        self.client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=f"{Config.ROBOT_ID}_simulator")
         self.client.on_connect = self._on_connect
+        self.client.on_disconnect = self._on_disconnect
         self.connected = False
 
-    def _on_connect(self, client, userdata, flags, rc):
+    def _on_connect(self, client, userdata, flags, rc, properties):
+        print(f"DEBUG: on_connect called with rc={rc}")
         self.connected = (rc == 0)
         if rc == 0:
-            print("***Connected to MQTT Broker***")
+            print("*** Connected to MQTT Broker ***")
         else:
-            print(f"!!!MQTT Connection Failed with code {rc}!!!")
+            print(f"!!! MQTT Connection Failed with code {rc} !!!")
+
+    def _on_disconnect(self, client, userdata, rc, properties):
+        print(f"DEBUG: on_disconnect called with rc={rc}")
+        self.connected = False
 
     def connect(self):
         try:
+            print(f"DEBUG: Attempting to connect to {Config.BROKER}:{Config.PORT}")
             self.client.connect(Config.BROKER, Config.PORT, 60)
             self.client.loop_start()
-            time.sleep(1)  # Wait for connection
+            # Wait longer for connection
+            for i in range(10):
+                if self.connected:
+                    print(f"DEBUG: Connected after {i+1} attempts")
+                    break
+                time.sleep(0.5)
+            print(f"DEBUG: Final connection status: {self.connected}")
         except Exception as e:
-            print(f"!!!Failed to connect to MQTT: {e}!!!")
+            print(f"!!! Failed to connect to MQTT: {e} !!!")
+            self.connected = False
 
     def publish(self, payload: dict):
         if self.connected:
@@ -72,15 +86,16 @@ class MQTTClient:
                 self.client.publish(Config.TOPIC, json.dumps(payload), qos=1)
                 return True
             except Exception as e:
-                print(f"!!!Failed to publish: {e}!!!")
+                print(f"!!! Failed to publish: {e} !!!")
                 return False
         else:
-            print("!MQTT not connected, skipping publish!")
+            print("! MQTT not connected, skipping publish!")
             return False
 
     def disconnect(self):
         self.client.loop_stop()
-        self.client.disconnect()
+        if self.connected:
+            self.client.disconnect()
 
 # ==================== TELEMETRY GENERATOR ====================
 class TelemetryGenerator:
@@ -107,19 +122,20 @@ class TelemetryGenerator:
 
         self.state.battery_history.append(self.state.battery_level)
         self.state.battery_drop_rate = max(round(self.state.prev_battery_level - self.state.battery_level, 2), 0)
-        self.state.battery_trend = round((self.state.battery_history[-1] - self.state.battery_history[0])
-                                         if len(self.state.battery_history) >= 2 else 0.0, 2)
+        if len(self.state.battery_history) >= 2:
+            self.state.battery_trend = round(self.state.battery_history[-1] - self.state.battery_history[0], 2)
+        else:
+            self.state.battery_trend = 0.0
         self.state.prev_battery_level = self.state.battery_level
         return round(self.state.battery_level, 2)
 
-    #adjusts temperature based on CPU/motor load and anomalies.
     def _simulate_temperature(self):
         ambient = 25
         target = ambient + self.state.motor_current * 3.5 + self.state.cpu_load * 0.15
         
         # If overheating anomaly, increase target significantly
         if self.state.degradation_mode == "MOTOR_OVERHEATING":
-            target += self.state.degradation_progress * 10  # Much faster heating
+            target += self.state.degradation_progress * 10
             
         self.state.temperature += (target - self.state.temperature) * 0.15
         return round(self.state.temperature, 2)
@@ -130,7 +146,6 @@ class TelemetryGenerator:
         if self.state.temperature > 70:
             load += (self.state.temperature - 70) * 0.1
             
-        # If overheating anomaly, increase current significantly
         if self.state.degradation_mode == "MOTOR_OVERHEATING":
             load += self.state.degradation_progress * 1.5
             
@@ -138,23 +153,20 @@ class TelemetryGenerator:
         return round(self.state.motor_current, 2)
 
     def _simulate_velocity(self):
-        # Normal velocity simulation
         if self.state.cycle_count % 20 < 15:
             target = random.uniform(1.0, 2.2)
         else:
             target = random.uniform(0, 0.5)
             
-        # If abnormal velocity anomaly, make it extreme
         if self.state.degradation_mode == "ABNORMAL_VELOCITY":
             if self.state.cycle_count % 10 < 7:
-                target = random.uniform(3.5, 5.0)  # Very high velocity
+                target = random.uniform(3.5, 5.0)
             else:
-                target = random.uniform(0, 0.2)   # Sudden stops
+                target = random.uniform(0, 0.2)
                 
         self.state.velocity += (target - self.state.velocity) * 0.3
         return round(max(self.state.velocity, 0), 2)
 
-    #CPU usage influenced by velocity + random variation.    
     def _simulate_cpu(self):
         base = 30
         self.state.cpu_load = min(max(base + self.state.velocity * 3 + random.uniform(-5, 5), 15), 100)
@@ -172,7 +184,6 @@ class TelemetryGenerator:
                 "pc_temperature": round(35 + random.uniform(-2, 2), 2)
             }
         except:
-            # Fallback if psutil fails
             return {
                 "pc_cpu_load": round(40 + random.uniform(-10, 20), 2),
                 "pc_memory_load": round(60 + random.uniform(-10, 15), 2),
@@ -185,7 +196,6 @@ class TelemetryGenerator:
     def generate(self):
         self.state.cycle_count += 1
 
-        # ================= SIMULATE VALUES =================
         battery = self._simulate_battery()
         temp = self._simulate_temperature()
         motor = self._simulate_motor()
@@ -193,8 +203,7 @@ class TelemetryGenerator:
         cpu = self._simulate_cpu()
         pc_metrics = self._get_pc_metrics()
 
-        # ================= RANDOM SENSOR FAILURES =================
-        SENSOR_FAILURE_PROBABILITY = 0.005  # 0.5% chance
+        SENSOR_FAILURE_PROBABILITY = 0.005
         if random.random() < SENSOR_FAILURE_PROBABILITY:
             sensor = random.choice(["encoder", "lidar", "camera"])
             if sensor == "encoder":
@@ -207,18 +216,13 @@ class TelemetryGenerator:
                 self.state.camera_ok = False
                 print("CAMERA FAILURE!")
         
-        # 10% chance to recover failed sensors
         if not self.state.encoder_ok and random.random() < 0.1:
             self.state.encoder_ok = True
-            print("*Encoder recovered")
         if not self.state.lidar_ok and random.random() < 0.1:
             self.state.lidar_ok = True
-            print("*LiDAR recovered")
         if not self.state.camera_ok and random.random() < 0.1:
             self.state.camera_ok = True
-            print("*Camera recovered")
 
-        # ================= ANOMALY GENERATION =================
         if (self.state.degradation_mode is None
             and self.state.anomaly_cooldown <= 0
             and self.state.anomalies_generated < Config.MAX_ANOMALIES):
@@ -231,41 +235,28 @@ class TelemetryGenerator:
                 ])
                 self.state.degradation_progress = 0
                 self.state.anomalies_generated += 1
-                
-                # Make anomalies more severe
                 self.state.anomaly_intensity = random.uniform(1.5, 3.0)
                 
                 print(f"\n{'='*50}")
                 print(f"!!!ANOMALY #{self.state.anomalies_generated} STARTED!")
                 print(f"!!!TYPE: {self.state.degradation_mode}")
-                print(f"!!!INTENSITY: {self.state.anomaly_intensity:.1f}x")
                 print(f"{'='*50}")
 
-        # Apply active anomaly effects
         if self.state.degradation_mode:
             self.state.degradation_progress += 1
             
             if self.state.degradation_mode == "MOTOR_OVERHEATING":
                 temp += self.state.degradation_progress * 3.0 * self.state.anomaly_intensity
                 motor += self.state.degradation_progress * 0.6 * self.state.anomaly_intensity
-                print(f"Overheating: Temp={temp}°C, Current={motor}A")
                 
             elif self.state.degradation_mode == "BATTERY_DEGRADATION":
                 health_loss = 2.5 * self.state.anomaly_intensity
                 self.state.battery_health = max(self.state.battery_health - health_loss, 20)
-                print(f"Degrading: Health={self.state.battery_health:.1f}%")
                 
             elif self.state.degradation_mode == "ABNORMAL_VELOCITY":
                 velocity += random.uniform(1.0, 2.5) * self.state.anomaly_intensity
-                print(f"Abnormal Velocity: {velocity}m/s")
 
-            # End anomaly after duration
-            if self.state.degradation_progress > 8:  # Longer duration
-                print(f"\n{'='*50}")
-                print(f"*ANOMALY RESOLVED: {self.state.degradation_mode}")
-                print(f"*Total duration: {self.state.degradation_progress} cycles")
-                print(f"{'='*50}")
-                
+            if self.state.degradation_progress > 8:
                 self.state.degradation_mode = None
                 self.state.anomaly_cooldown = 5
                 self.state.anomaly_intensity = 1.0
@@ -273,12 +264,9 @@ class TelemetryGenerator:
         if self.state.anomaly_cooldown > 0:
             self.state.anomaly_cooldown -= 1
 
-        # ================= PAYLOAD =================
         payload = {
             "robot_id": Config.ROBOT_ID,
             "timestamp": datetime.now(timezone.utc).isoformat(),
-
-            # Robot sensors
             "battery_level": round(battery, 2),
             "battery_health": round(self.state.battery_health, 2),
             "battery_drop_rate": self.state.battery_drop_rate,
@@ -287,40 +275,21 @@ class TelemetryGenerator:
             "motor_current": round(motor, 2),
             "cpu_load": round(cpu, 2),
             "velocity": round(velocity, 2),
-
-            # Sensor health
             "encoder_ok": self.state.encoder_ok,
             "lidar_ok": self.state.lidar_ok,
             "camera_ok": self.state.camera_ok,
-
-            # PC metrics
             **pc_metrics
         }
 
-        # ================= DEBUG OUTPUT =================
         print(f"\nCycle #{self.state.cycle_count}")
         print(f"  Battery: {battery}% (Health: {self.state.battery_health:.1f}%)")
-        print(f"  Temperature: {temp}°C {'🔥' if temp > 85 else '⚠️' if temp > 75 else ''}")
-        print(f"  Motor Current: {motor}A {'⚡' if motor > 12 else '⚠️' if motor > 10 else ''}")
-        print(f"  Velocity: {velocity}m/s {'🚀' if velocity > 4 else '⚠️' if velocity > 3 else ''}")
+        print(f"  Temperature: {temp}°C")
+        print(f"  Motor Current: {motor}A")
+        print(f"  Velocity: {velocity}m/s")
         print(f"  CPU: {cpu}%")
         
         if self.state.degradation_mode:
-            print(f"   ACTIVE ANOMALY: {self.state.degradation_mode} (Progress: {self.state.degradation_progress})")
-            
-        # Check if values are in anomaly range for ML detection
-        anomalies_detected = []
-        if temp > 85:
-            anomalies_detected.append(f"High Temp ({temp}°C)")
-        if motor > 12:
-            anomalies_detected.append(f"High Current ({motor}A)")
-        if self.state.battery_health < 40:
-            anomalies_detected.append(f"Low Battery Health ({self.state.battery_health:.1f}%)")
-        if velocity > 4:
-            anomalies_detected.append(f"High Velocity ({velocity}m/s)")
-            
-        if anomalies_detected:
-            print(f"  Potential ML triggers: {', '.join(anomalies_detected)}")
+            print(f"   ACTIVE ANOMALY: {self.state.degradation_mode}")
 
         return payload
 
@@ -332,7 +301,7 @@ def main():
     
     print("\n *Connecting to MQTT broker...")
     mqtt_client.connect()
-    time.sleep(2)  # Wait for connection
+    time.sleep(2)
     
     if not mqtt_client.connected:
         print("!!Could not connect to MQTT. Running in simulation mode only...")
@@ -352,7 +321,6 @@ def main():
             else:
                 print(f"   (Simulation only - no MQTT)")
             
-            # Show summary every 10 cycles
             if cycle % 10 == 0:
                 print(f"\n{'='*60}")
                 print(f" SUMMARY after {cycle} cycles:")
@@ -375,7 +343,6 @@ def main():
     finally:
         if mqtt_client.connected:
             mqtt_client.disconnect()
-            print("!! MQTT disconnected")
 
 if __name__ == "__main__":
     main()

@@ -1,5 +1,5 @@
 // controllers/alertController.js
-import Telemetry from "../models/Telemetry.js";
+import Telemetry from "../models/telemetry.js";
 import logger from "../utils/logger.js";
 
 /**

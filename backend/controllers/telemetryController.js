@@ -1,5 +1,5 @@
 // telemetryController.js
-import telemetryService from '../services/TelemetryService.js';
+import telemetryService from '../services/telemetryService.js';
 import logger from '../utils/logger.js';
 
 /**

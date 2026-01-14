@@ -1,4 +1,4 @@
-import Telemetry from "../models/Telemetry.js";
+import Telemetry from "../models/telemetry.js";
 import logger from "../utils/logger.js";
 import { predictAnomaly } from "./mlService.js";
 import { detectIssues, calculateStatus, DEFAULT_THRESHOLDS } from '../config/thresholds.js';
@@ -157,7 +157,7 @@ export const processTelemetry = async (data, io) => {
       
       // Ensure status reflects rule-based issues
       if (status === "NORMAL" && issues.length > 0) {
-        status = issues.some(i => i.severity === "CRITICAL") ? "CRITICAL" : "WARNING";
+        status = issues.some(iss => iss.severity === "CRITICAL") ? "CRITICAL" : "WARNING";
       }
     }
     // ==============================================================================
