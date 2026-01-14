@@ -177,14 +177,21 @@ The architecture shows how the robot simulator, backend, MQTT broker, AI model, 
 
 ### **Admin Dashboard**
 ![Admin Dashboard](docs/admin-dashboard.png)
+
+
 *Complete system oversight with real-time monitoring.*
 
 ### **Engineer Alert Interface**
 ![Alerts Panel](docs/alerts-maintenance-engineer.png)
+
+
 *Real-time anomaly alerts powered by XGBoost AI and configurable rule-based thresholds.*
 
 ### **User Management Panel**
 ![Engineer Management](docs/engineer-management.png)
+
+
+
 *Administrator tool for managing maintenance engineers, roles, and system access permissions.*
 
 
@@ -396,7 +403,7 @@ docker-compose up -d
 ## 📄 License
 This project is licensed under the MIT License - see the LICENSE file for details.
 
-##🙏 Acknowledgments
+## 🙏 Acknowledgments
 XGBoost for machine learning capabilities
 MQTT for IoT communication
 MongoDB for data storage
