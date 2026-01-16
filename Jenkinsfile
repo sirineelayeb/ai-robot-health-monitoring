@@ -122,10 +122,10 @@ GIT_COMMIT=${GIT_COMMIT}
 EOF
                     
                     # Replace variables in the .env file
-                    sed -i "s/\${BUILD_NUMBER}/${BUILD_NUMBER}/g" backend/.env
-                    sed -i "s/\${BUILD_TIMESTAMP}/${BUILD_TIMESTAMP}/g" backend/.env
-                    sed -i "s/\${GIT_COMMIT}/${GIT_COMMIT}/g" backend/.env
-                    sed -i "s/\${DEPLOY_ENVIRONMENT}/${DEPLOY_ENVIRONMENT}/g" backend/.env
+                    sed -i "s/\\\${BUILD_NUMBER}/${BUILD_NUMBER}/g" backend/.env
+                    sed -i "s/\\\${BUILD_TIMESTAMP}/${BUILD_TIMESTAMP}/g" backend/.env
+                    sed -i "s/\\\${GIT_COMMIT}/${GIT_COMMIT}/g" backend/.env
+                    sed -i "s/\\\${DEPLOY_ENVIRONMENT}/${DEPLOY_ENVIRONMENT}/g" backend/.env
                     
                     # Add actual credentials
                     echo "MONGO_URI=${MONGO_URI}" >> backend/.env
@@ -327,9 +327,9 @@ EOF
                     sleep 5
                 done
                 
-                # Test frontend
+                # Test frontend - FIXED LINE (removed the backslash issue)
                 echo "=== Testing Frontend ==="
-                if curl -s -o /dev/null -w "%{http_code}" http://localhost:5173 | grep -q "200\|304\|302"; then
+                if curl -s -o /dev/null -w "%{http_code}" http://localhost:5173 | grep -q "200|304|302"; then
                     echo "✅ Frontend is accessible"
                 else
                     echo "⚠️  Frontend check failed (might need more time)"
@@ -447,7 +447,7 @@ EOF
             
             echo ""
             echo "4. Backend container details:"
-            docker inspect ${COMPOSE_PROJECT_NAME}_backend 2>/dev/null | grep -A5 -B5 "Error\|ExitCode" || true
+            docker inspect ${COMPOSE_PROJECT_NAME}_backend 2>/dev/null | grep -A5 -B5 "Error|ExitCode" || true
             '''
             
             // Save error report
