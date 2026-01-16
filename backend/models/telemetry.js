@@ -138,3 +138,4 @@ telemetrySchema.index({ "detected_issues.severity": 1, timestamp: -1 });
 const Telemetry = mongoose.models.Telemetry || mongoose.model("Telemetry", telemetrySchema);
 
 export default Telemetry;
+
