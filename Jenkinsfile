@@ -206,5 +206,50 @@ EOF
             docker system df || true
             '''
         }
+
+        timeout(time: 60, unit: 'MINUTES')  // Increased to 60 minutes
     }
-}
+    
+    parameters {
+        choice(
+            name: 'DEPLOY_ENVIRONMENT',
+            choices: ['development'],
+            description: 'Select deployment environment'
+        )
+        booleanParam(
+            name: 'ENABLE_SIMULATOR',
+            defaultValue: true,
+            description: 'Enable robot simulator'
+        )
+    }
+    
+    stages {
+        
+        stage('Cleanup') {
+            steps {
+                checkout scm
+                script {
+                    echo "🤖 AI Robot Health Monitoring - Build #${BUILD_NUMBER}"
+                }
+            }
+        }
+        
+        stage('Prepare Environment') {
+            steps {
+                withCredentials([
+                    string(credentialsId: 'jwt-secret', variable: 'JWT_SECRET'),
+                    string(credentialsId: 'admin-password', variable: 'ADMIN_PASSWORD'),
+                    string(credentialsId: 'mongo-uri', variable: 'MONGO_URI'),
+                    string(credentialsId: 'mqtt-broker-url', variable: 'MQTT_BROKER_URL')
+                ]) {
+                    sh '''
+                    echo "Creating environment files..."
+                    
+                    # Backend .env
+                    cat > backend/.env << EOF
+NODE_ENV=development
+PORT=3000
+MONGO_URI=${MONGO_URI}
+MQTT_BROKER_URL=${MQTT_BROKER_URL}
+JWT_SECRET=${JWT_SECRET}
+ADMIN_PASSWORD=${ADMIN_PASSWORD}
