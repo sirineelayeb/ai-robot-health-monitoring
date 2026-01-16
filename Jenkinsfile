@@ -6,7 +6,7 @@ pipeline {
             steps {
                 sh '''
                     echo "=== Deploying AI Robot Health Monitoring ==="
-                    cd /home/sirineayb/pfa-project/ai-robot-health-monitoring
+                    cd $WORKSPACE
                     
                     echo "1. Stopping existing containers..."
                     docker-compose down || true
