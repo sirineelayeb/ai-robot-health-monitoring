@@ -2,7 +2,7 @@ pipeline {
     agent any
     
     options {
-        timeout(time: 30, unit: 'MINUTES')
+        timeout(time: 60, unit: 'MINUTES')
     }
     
     parameters {
@@ -23,7 +23,6 @@ pipeline {
     }
     
     stages {
-        
         stage('Cleanup') {
             steps {
                 checkout scm
@@ -61,20 +60,37 @@ EOF
             }
         }
         
+        stage('Build') {
+            steps {
+                sh '''
+                echo "Building Docker images..."
+                
+                # Build backend
+                echo "1. Building backend..."
+                docker build -t ai-robot-health-monitoring_backend backend/
+                
+                # Build frontend
+                echo "2. Building frontend..."
+                docker build -t ai-robot-health-monitoring_frontend frontend/
+                
+                # Build simulator if enabled
+                if [ "$ENABLE_SIMULATOR" = "true" ]; then
+                    echo "3. Building simulator..."
+                    docker build -t ai-robot-health-monitoring_simulator .
+                fi
+                
+                echo "✅ All images built successfully!"
+                '''
+            }
+        }
+        
         stage('Deploy') {
             steps {
                 sh '''
-                echo "Deploying..."
-                
-                # Stop any existing containers
-                docker-compose down 2>/dev/null || true
-                
-                # Build and start
-                docker-compose build
+                echo "Deploying services..."
                 docker-compose up -d
-                
-                echo "Waiting for services..."
-                sleep 20
+                echo "Waiting for services to start..."
+                sleep 15
                 '''
             }
         }
@@ -82,21 +98,20 @@ EOF
         stage('Verify') {
             steps {
                 sh '''
-                echo "Verifying..."
+                echo "Verifying deployment..."
+                docker ps
                 
-                # Check status
-                docker-compose ps
-                
-                # Test backend
                 echo "Testing backend..."
                 for i in {1..10}; do
-                    if curl -s http://localhost:3000 > /dev/null; then
+                    if curl -f http://localhost:3000/health > /dev/null 2>&1; then
                         echo "✅ Backend is up!"
-                        break
+                        exit 0
                     fi
-                    echo "Waiting... ($i/10)"
+                    echo "Waiting for backend... ($i/10)"
                     sleep 5
                 done
+                echo "❌ Backend failed to start"
+                exit 1
                 '''
             }
         }
