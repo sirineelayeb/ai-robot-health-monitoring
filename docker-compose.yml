@@ -1,41 +1,83 @@
 version: "3.9"
+
 services:
   mongo:
     image: mongo:6
+    container_name: robot-mongo
     ports:
       - "27017:27017"
-
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    
   mqtt:
     image: eclipse-mosquitto:2
-    container_name: mqtt
+    container_name: robot-mqtt
     ports:
-      - "1883:1883" 
+      - "1883:1883"
     volumes:
       - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
+    healthcheck:
+      test: ["CMD", "mosquitto_sub", "-t", "$$SYS/#", "-C", "1", "-i", "healthcheck", "-W", "3"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
       
   backend:
-    build: ./backend
+    build: 
+      context: ./backend
+      args:
+        - BUILDKIT_INLINE_CACHE=1
+    container_name: robot-backend
     ports:
       - "3000:3000"
     env_file:
       - ./backend/.env
+    volumes:
+      - ./backend/models:/app/models
+      - ./backend/logs:/app/logs
     depends_on:
-      - mongo
-      - mqtt
-
+      mongo:
+        condition: service_healthy
+      mqtt:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    
   frontend:
     build: ./frontend
+    container_name: robot-frontend
     ports:
       - "5173:80"
     depends_on:
-      - backend
-
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    
   simulator:
     build: ./robot-simulator
     container_name: robot-simulator
     depends_on:
-      - mqtt
+      mqtt:
+        condition: service_healthy
     environment:
       - BROKER=mqtt
       - PORT=1883
     restart: unless-stopped
+
+volumes:
+  mongo-data:
