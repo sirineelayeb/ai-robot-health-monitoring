@@ -42,8 +42,8 @@ ADMIN_PASSWORD=admin123
 PYTHON_PATH=/usr/bin/python3
 EOF
                 
-                # Frontend .env
-                echo "VITE_API_URL=http://localhost:3000" > frontend/.env
+                # Frontend .env - FIXED: Use backend service name instead of localhost
+                echo "VITE_API_URL=http://backend:3000" > frontend/.env
                 
                 echo "✅ Environment files created"
                 '''
@@ -87,10 +87,10 @@ EOF
                     sh '''
                     echo "🏥 Running health checks..."
                     
-                    # Check backend health
+                    # Check backend health - FIXED: Use docker-compose exec instead of curl from Jenkins
                     echo "Checking backend..."
                     for i in {1..20}; do
-                        if curl -f http://localhost:3000/health 2>/dev/null; then
+                        if docker-compose exec -T backend curl -s -f http://localhost:3000/health >/dev/null 2>&1; then
                             echo "✅ Backend is healthy!"
                             break
                         fi
@@ -103,10 +103,10 @@ EOF
                         sleep 5
                     done
                     
-                    # Check frontend
+                    # Check frontend - FIXED: Use docker-compose exec and port 80 (not 5173)
                     echo "Checking frontend..."
                     for i in {1..10}; do
-                        if curl -f http://localhost:5173 2>/dev/null; then
+                        if docker-compose exec -T frontend curl -s -f http://localhost:80 >/dev/null 2>&1; then
                             echo "✅ Frontend is healthy!"
                             break
                         fi
