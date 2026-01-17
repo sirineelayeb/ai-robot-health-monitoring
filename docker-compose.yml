@@ -1,4 +1,4 @@
-﻿services:
+services:
   mongo:
     image: mongo:6
     container_name: robot-mongo
@@ -7,7 +7,7 @@
     volumes:
       - mongo-data:/data/db
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand(''ping'')"]
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 10s
       timeout: 5s
       retries: 5
