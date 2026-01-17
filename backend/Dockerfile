@@ -1,24 +1,22 @@
-FROM node:20-slim
+FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install Python and minimal build dependencies
+# Install Node.js from NodeSource
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    python3 \
-    python3-pip \
-    python3-dev \
+    curl \
+    gnupg \
     build-essential \
     libgomp1 \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Create symbolic link for python command
-RUN ln -s /usr/bin/python3 /usr/bin/python
-
-# Install Python ML dependencies first (for better caching)
+# Install Python ML dependencies (no --break-system-packages needed)
 COPY requirements.txt ./
-RUN pip3 install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Install Node.js dependencies
 COPY package*.json ./
