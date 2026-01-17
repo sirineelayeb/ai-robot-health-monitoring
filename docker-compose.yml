@@ -1,4 +1,4 @@
-﻿services:
+services:
   mongo:
     image: mongo:6
     container_name: robot-mongo
@@ -21,7 +21,7 @@
       - mosquitto-data:/mosquitto/data
       - mosquitto-log:/mosquitto/log
     healthcheck:
-      test: ["CMD", "mosquitto_pub", "-t", "test", "-m", "test"]
+      test: ["CMD", "mosquitto_sub", "-t", "test", "-C", "1", "-W", "1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -35,9 +35,8 @@
     env_file:
       - ./backend/.env
     depends_on:
-      mongo:
-        condition: service_healthy
-      mqtt:
+      - mongo
+      - mqtt
     restart: unless-stopped
 
   frontend:
@@ -53,7 +52,7 @@
     build: ./robot-simulator
     container_name: robot-simulator
     depends_on:
-      mqtt:
+      - mqtt
     environment:
       - BROKER=mqtt
       - PORT=1883
@@ -63,6 +62,3 @@ volumes:
   mongo-data:
   mosquitto-data:
   mosquitto-log:
-
-
-
