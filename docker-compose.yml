@@ -11,48 +11,73 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 40s
 
   mqtt:
     image: eclipse-mosquitto:2
     container_name: robot-mqtt
     ports:
       - "1883:1883"
+      - "9001:9001"
     volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
       - mosquitto-data:/mosquitto/data
       - mosquitto-log:/mosquitto/log
     healthcheck:
-      test: ["CMD", "mosquitto_sub", "-t", "test", "-C", "1", "-W", "1"]
+      test: ["CMD-SHELL", "timeout 5 mosquitto_sub -t '$$SYS/#' -C 1 || exit 1"]
       interval: 10s
-      timeout: 5s
+      timeout: 10s
       retries: 5
+      start_period: 10s
 
   backend:
     build:
       context: ./backend
+      dockerfile: Dockerfile
     container_name: robot-backend
     ports:
       - "3000:3000"
     env_file:
       - ./backend/.env
     depends_on:
-      - mongo
-      - mqtt
+      mongo:
+        condition: service_healthy
+      mqtt:
+        condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
     container_name: robot-frontend
     ports:
       - "5173:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   simulator:
-    build: ./robot-simulator
+    build:
+      context: ./robot-simulator
+      dockerfile: Dockerfile
     container_name: robot-simulator
     depends_on:
-      - mqtt
+      mqtt:
+        condition: service_healthy
     environment:
       - BROKER=mqtt
       - PORT=1883
@@ -62,3 +87,7 @@ volumes:
   mongo-data:
   mosquitto-data:
   mosquitto-log:
+
+networks:
+  default:
+    name: robot-network
