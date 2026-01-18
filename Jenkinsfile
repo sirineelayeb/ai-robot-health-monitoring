@@ -70,7 +70,7 @@ ENVEOF
 
                 echo "Waiting for services to initialize..."
                 sleep 30
-                
+
                 echo "Container status:"
                 docker-compose ps
                 '''
@@ -83,7 +83,7 @@ ENVEOF
                     script {
                         sh '''
                         echo "Waiting for services to become healthy..."
-                        
+
                         # Wait for containers to be running
                         for i in {1..60}; do
                             RUNNING=$(docker-compose ps | grep -c "Up" || echo "0")
@@ -94,10 +94,10 @@ ENVEOF
                             echo "Waiting for containers... (attempt $i/60)"
                             sleep 2
                         done
-                        
+
                         # Additional wait for services to be ready
                         sleep 30
-                        
+
                         echo "Final container status:"
                         docker-compose ps
                         '''
@@ -187,7 +187,7 @@ ENVEOF
             echo "Final Status Check:"
             echo "======================================"
             docker-compose ps || true
-            
+
             # Archive logs for debugging
             docker-compose logs > docker-compose-logs.txt 2>&1 || true
             '''
