@@ -2,38 +2,38 @@
 FROM node:20-alpine AS build
 
 WORKDIR /app
-
-# Copy dependency files
 COPY package*.json ./
-
-# Install dependencies
 RUN npm ci
-
-# Copy source code
 COPY . .
-
-# Build the application
 RUN npm run build
 
 # Production stage
 FROM nginx:alpine
 
-# Install wget for healthcheck
 RUN apk add --no-cache wget
 
-# Copy custom nginx configuration
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Copy single nginx configuration to MAIN location
+COPY nginx.conf /etc/nginx/nginx.conf
 
-# Copy built files from build stage
 COPY --from=build /app/dist /usr/share/nginx/html
 
-# Create non-root user
-RUN addgroup -g 101 -S nginx-app && \
+RUN mkdir -p /var/cache/nginx/client_temp \
+             /var/cache/nginx/proxy_temp \
+             /var/cache/nginx/fastcgi_temp \
+             /var/cache/nginx/uwsgi_temp \
+             /var/cache/nginx/scgi_temp \
+             /var/run \
+             /var/log/nginx && \
+    addgroup -g 101 -S nginx-app && \
     adduser -S -D -H -u 101 -h /var/cache/nginx -s /sbin/nologin -G nginx-app -g nginx-app nginx-app && \
     chown -R nginx-app:nginx-app /usr/share/nginx/html && \
     chown -R nginx-app:nginx-app /var/cache/nginx && \
+    chown -R nginx-app:nginx-app /var/log/nginx && \
     touch /var/run/nginx.pid && \
-    chown -R nginx-app:nginx-app /var/run/nginx.pid
+    chown -R nginx-app:nginx-app /var/run/nginx.pid && \
+    chmod -R 755 /var/cache/nginx && \
+    chmod -R 755 /var/run && \
+    chmod -R 755 /var/log/nginx
 
 USER nginx-app
 
