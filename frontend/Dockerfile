@@ -2,40 +2,48 @@
 FROM node:20-alpine AS build
 
 WORKDIR /app
+
+# Copy dependency files
 COPY package*.json ./
+
+# Install dependencies
 RUN npm ci
+
+# Copy source code
 COPY . .
+
+# Build the application
 RUN npm run build
 
 # Production stage
 FROM nginx:alpine
 
+# Install wget for healthcheck
 RUN apk add --no-cache wget
 
-# Copy single nginx configuration to MAIN location
+# Copy nginx configuration
 COPY nginx.conf /etc/nginx/nginx.conf
 
+# Copy built files from build stage
 COPY --from=build /app/dist /usr/share/nginx/html
 
+# Create necessary directories and set permissions
+# Note: nginx user already exists in base image
 RUN mkdir -p /var/cache/nginx/client_temp \
              /var/cache/nginx/proxy_temp \
              /var/cache/nginx/fastcgi_temp \
              /var/cache/nginx/uwsgi_temp \
-             /var/cache/nginx/scgi_temp \
-             /var/run \
-             /var/log/nginx && \
-    addgroup -g 101 -S nginx-app && \
-    adduser -S -D -H -u 101 -h /var/cache/nginx -s /sbin/nologin -G nginx-app -g nginx-app nginx-app && \
-    chown -R nginx-app:nginx-app /usr/share/nginx/html && \
-    chown -R nginx-app:nginx-app /var/cache/nginx && \
-    chown -R nginx-app:nginx-app /var/log/nginx && \
-    touch /var/run/nginx.pid && \
-    chown -R nginx-app:nginx-app /var/run/nginx.pid && \
+             /var/cache/nginx/scgi_temp && \
+    chown -R nginx:nginx /usr/share/nginx/html && \
+    chown -R nginx:nginx /var/cache/nginx && \
+    chown -R nginx:nginx /var/log/nginx && \
+    chown -R nginx:nginx /var/run && \
     chmod -R 755 /var/cache/nginx && \
     chmod -R 755 /var/run && \
     chmod -R 755 /var/log/nginx
 
-USER nginx-app
+# Switch to nginx user
+USER nginx
 
 EXPOSE 80
 
