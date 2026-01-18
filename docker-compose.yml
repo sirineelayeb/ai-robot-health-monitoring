@@ -20,9 +20,9 @@ services:
       - "1883:1883"
       - "9001:9001"
     volumes:
-      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
       - mosquitto-data:/mosquitto/data
       - mosquitto-log:/mosquitto/log
+    command: mosquitto -c /mosquitto-no-auth.conf
     healthcheck:
       test: ["CMD-SHELL", "timeout 5 mosquitto_sub -t '$$SYS/#' -C 1 || exit 1"]
       interval: 10s
