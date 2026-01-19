@@ -334,7 +334,7 @@ const startServer = async () => {
     logger.info("  Admin user initialized");
     
     // Start HTTP server
-    server.listen(config.port, () => {
+    server.listen(config.port, '0.0.0.0', () => {
       logger.info(" Robot Telemetry Monitoring Server is running!");
       logger.info(`Port:        ${config.port}`);
       logger.info(`Environment: ${config.env || "development"}`);
