@@ -1,8 +1,8 @@
-# 🤖 AI-Based Robot Health Monitoring
+# AI-Based Robot Health Monitoring
 
 A real-time robot health monitoring platform combining IoT telemetry, MQTT communication, and AI-based anomaly detection using XGBoost. The system continuously analyzes robot and system metrics to detect abnormal behavior and potential failures, visualized through an interactive web dashboard.
 
-## 🎯 Project Objectives
+## Project Objectives
 
 - Monitor robot health in real time
 - Detect early anomalies using AI and rule-based logic
@@ -10,26 +10,26 @@ A real-time robot health monitoring platform combining IoT telemetry, MQTT commu
 - Provide role-based dashboards for administrators and maintenance engineers
 - Demonstrate a full end-to-end IoT + AI architecture
 
-## 📊 Telemetry Monitored
+## Telemetry Monitored
 
-### 🤖 Robot Metrics
+### Robot Metrics
 - Battery level, health, drop rate, and degradation trend
 - Motor temperature and current
 - Velocity and CPU load
 
-### 🩺 Sensor Health
+### Sensor Health
 - Encoder status
 - LiDAR status
 - Camera status
 
-### 💻 Embedded PC Metrics
+### Embedded PC Metrics
 - CPU usage
 - Memory usage
 - Disk usage
 - Network activity
 - System temperature
 
-## 🧠 AI Anomaly Detection (XGBoost)
+## AI Anomaly Detection (XGBoost)
 
 A trained XGBoost model performs pattern-based anomaly detection on incoming telemetry data:
 
@@ -39,10 +39,10 @@ A trained XGBoost model performs pattern-based anomaly detection on incoming tel
 
 *Other basic anomalies are handled using rule-based thresholds for fast detection.*
 
-## 🏗️ System Architecture
+## System Architecture
 
 The system uses a microservices architecture with Docker containers:
-# 📁 Project Structure
+# Project Structure
    ```bash
 ┌─────────────────────────────────────────────────────────────┐
 │ Docker Compose │
@@ -164,7 +164,7 @@ ai-robot-health-monitoring/
 
 The architecture shows how the robot simulator, backend, MQTT broker, AI model, and frontend dashboard communicate in real-time.
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 **Frontend:** React, TypeScript, Tailwind CSS, Vite  
 **Backend:** Node.js, Express, Socket.io, JWT  
@@ -173,7 +173,7 @@ The architecture shows how the robot simulator, backend, MQTT broker, AI model, 
 **IoT/Communication:** MQTT, WebSocket  
 **DevOps:** Docker, Docker Compose  
 
-## 📸 Screenshots
+## Screenshots
 
 ### **Admin Dashboard**
 ![Admin Dashboard](docs/admin-dashboard.png)
@@ -196,9 +196,9 @@ The architecture shows how the robot simulator, backend, MQTT broker, AI model, 
 
 
 
-## 🚀 Getting Started
+## Getting Started
 
-### 🔐 Environment Variables
+### Environment Variables
 
 This project requires environment variables for both the backend and frontend.
 
@@ -220,7 +220,7 @@ VITE_API_URL=http://localhost:3000
 VITE_SOCKET_URL=ws://localhost:3000
 ```
 
-## 🐳 Docker Deployment 
+## Docker Deployment 
 This project includes full Docker support for easy deployment.
 
 ### **Quick Start with Docker:**
@@ -285,7 +285,7 @@ docker-compose restart simulator
 # Remove everything (including volumes)
 docker-compose down -v
 ```
-#🪟 Windows Deployment
+# Windows Deployment
 For Windows users, use the provided PowerShell script:
   ```bash
 
@@ -297,7 +297,7 @@ docker-compose down
 docker system prune -f
 docker-compose up -d
 ```
-## ▶️ Manual Installation (Without Docker)
+## Manual Installation (Without Docker)
 1. Robot Simulator
 Navigate to robot-simulator/
 
@@ -332,33 +332,10 @@ Start the dashboard:
 ```bash
 npm run dev
 ```
-🔐 After starting, you will be redirected to the login page.
+After starting, you will be redirected to the login page.
 Once you log in (as Admin or Maintenance Engineer), you will access the main dashboard with real-time telemetry and alerts.
-## ✨Features
 
-🐳 Containerized Deployment with Docker Compose
-
-📡 Real-time telemetry monitoring via MQTT
-
-🧠 AI-powered anomaly detection using XGBoost
-
-📊 Interactive dashboards and historical analytics
-
-🔔 Alert system with filtering and severity levels
-
-👥 Role-based access (Admin / Maintenance Engineer)
-
-🔌 MQTT-based IoT communication
-
-⚡ WebSocket live updates
-
-🔄 Automated deployment scripts for Windows/Linux
-
-📈 ML model training and evaluation pipeline
-
-🔧 Comprehensive API with JWT authentication
-
-## 🔧 Troubleshooting
+## Troubleshooting
 Common Issues:
 1. Port already in use:
   ```bash
@@ -392,7 +369,7 @@ docker-compose down -v
 docker system prune -a -f
 docker-compose up -d
 ```
-## 📈 Future Enhancements
+## Future Enhancements
 - Mobile app version
 - Support for multiple robots
 - Kubernetes deployment
@@ -400,22 +377,22 @@ docker-compose up -d
 - Real-time video streaming
 - OAuth login integration
 - SMS/email alert notifications
-## 📄 License
+## License
 This project is licensed under the MIT License - see the LICENSE file for details.
 
-## 🙏 Acknowledgments
+## Acknowledgments
 XGBoost for machine learning capabilities
 MQTT for IoT communication
 MongoDB for data storage
 React & Node.js for the web stack
 Docker for containerization
 
-## 📞 Support
+## Support
 For issues, questions, or contributions:
 GitHub Issues: Report a bug
 Repository: https://github.com/sirineelayeb/ai-robot-health-monitoring
 
-## 🤝 Contributing
+## Contributing
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
