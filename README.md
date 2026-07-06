@@ -42,22 +42,6 @@ A trained XGBoost model performs pattern-based anomaly detection on incoming tel
 ## System Architecture
 
 The system uses a microservices architecture with Docker containers:
-# Project Structure
-   ```bash
-┌─────────────────────────────────────────────────────────────┐
-│ Docker Compose │
-├──────────────┬──────────────┬──────────────┬──────────────┤
-│ Frontend │ Backend │ MQTT │ MongoDB │
-│ (React + │ (Node.js) │ (Mosquitto)│ (Database) │
-│ Nginx) │ │ │ │
-└──────────────┴──────────────┴──────────────┴──────────────┘
-↑ ↑ ↑ ↑
-│ │ │ │
-┌───────┴──────────────┴──────────────┴──────────────┴───────┐
-│ Robot Simulator │
-│ (Python + MQTT) │
-└─────────────────────────────────────────────────────────────┘
-```
 ```bash
 
 ai-robot-health-monitoring/
